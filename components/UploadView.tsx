@@ -25,7 +25,7 @@ function FileChip({ file, onRemove }: { file: File; onRemove: () => void }) {
         <strong title={file.name}>{file.name}</strong>
         <span>{formatBytes(file.size)} · {file.type === "application/pdf" ? "PDF" : "Image"}</span>
       </span>
-      <button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`} className="remove-file-button">
+      <button type="button" onClick={(event) => { event.stopPropagation(); onRemove(); }} aria-label={`Remove ${file.name}`} className="remove-file-button">
         <Trash2 size={13} />
       </button>
     </div>
@@ -62,7 +62,7 @@ function UploadCard({
     <div className={`upload-card${file ? " has-file" : ""}`} onClick={chooseFile} onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
       <input ref={inputRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={handleChange} hidden />
       {file ? (
-        <FileChip file={file} onRemove={(event) => { event.stopPropagation(); onRemove(); }} />
+        <FileChip file={file} onRemove={onRemove} />
       ) : (
         <>
           <div className="upload-icon"><Upload size={15} strokeWidth={2.2} /></div>
