@@ -1,0 +1,308 @@
+{
+  "fixture": "northstar-advanced-systems-hard-v1",
+  "questionPaper": "tough-question-paper.pdf",
+  "answerSheet": "tough-answer-sheet.pdf",
+  "expected": {
+    "questionCount": 18,
+    "answeredCount": 14,
+    "unansweredQuestionIds": [
+      "2(b)",
+      "6(b)(ii)",
+      "9",
+      "11(b)"
+    ],
+    "outOfOrder": true,
+    "multiPageAnswers": [
+      "2(a)"
+    ],
+    "subPartsMustRemainSeparate": [
+      "2(a)",
+      "2(b)",
+      "4(a)",
+      "4(b)",
+      "6(a)",
+      "6(b)(i)",
+      "6(b)(ii)",
+      "7(a)",
+      "7(b)",
+      "11(a)",
+      "11(b)"
+    ]
+  },
+  "questions": [
+    {
+      "questionId": "1",
+      "printedLabel": "1",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 3,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.0998,
+            "width": 0.7244,
+            "height": 0.0891
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "2(a)",
+      "printedLabel": "2 (a)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 1,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.2649,
+            "width": 0.7244,
+            "height": 0.0416
+          }
+        },
+        {
+          "page": 2,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.0998,
+            "width": 0.7244,
+            "height": 0.0416
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "2(b)",
+      "printedLabel": "2 (b)",
+      "status": "unanswered",
+      "regions": []
+    },
+    {
+      "questionId": "3",
+      "printedLabel": "3",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 2,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.272,
+            "width": 0.7244,
+            "height": 0.0416
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "4(a)",
+      "printedLabel": "4 (a)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 3,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.4656,
+            "width": 0.7244,
+            "height": 0.0653
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "4(b)",
+      "printedLabel": "4 (b)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 2,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.1758,
+            "width": 0.7244,
+            "height": 0.0653
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "5",
+      "printedLabel": "5",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 4,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.4347,
+            "width": 0.7244,
+            "height": 0.1033
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "6(a)",
+      "printedLabel": "6 (a)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 3,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.2186,
+            "width": 0.7244,
+            "height": 0.0653
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "6(b)(i)",
+      "printedLabel": "6 (b) (i)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 3,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.3088,
+            "width": 0.7244,
+            "height": 0.0416
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "6(b)(ii)",
+      "printedLabel": "6 (b) (ii)",
+      "status": "unanswered",
+      "regions": []
+    },
+    {
+      "questionId": "7(a)",
+      "printedLabel": "7 (a)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 1,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.0998,
+            "width": 0.7244,
+            "height": 0.0416
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "7(b)",
+      "printedLabel": "7 (b)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 1,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.1663,
+            "width": 0.7244,
+            "height": 0.0653
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "8",
+      "printedLabel": "8",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 4,
+          "bbox": {
+            "x": 0.2957,
+            "y": 0.1271,
+            "width": 0.4149,
+            "height": 0.1699
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "9",
+      "printedLabel": "9",
+      "status": "unanswered",
+      "regions": []
+    },
+    {
+      "questionId": "10",
+      "printedLabel": "10",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 4,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.5606,
+            "width": 0.7244,
+            "height": 0.0606
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "11(a)",
+      "printedLabel": "11 (a)",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 3,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.3753,
+            "width": 0.7244,
+            "height": 0.0653
+          }
+        }
+      ]
+    },
+    {
+      "questionId": "11(b)",
+      "printedLabel": "11 (b)",
+      "status": "unanswered",
+      "regions": []
+    },
+    {
+      "questionId": "12",
+      "printedLabel": "12",
+      "status": "answered",
+      "regions": [
+        {
+          "page": 4,
+          "bbox": {
+            "x": 0.242,
+            "y": 0.3136,
+            "width": 0.5107,
+            "height": 0.0903
+          }
+        }
+      ]
+    }
+  ],
+  "unmatchedAnswers": [
+    {
+      "label": "Q13",
+      "status": "unmatched",
+      "regions": [
+        {
+          "page": 1,
+          "bbox": {
+            "x": 0.1613,
+            "y": 0.3314,
+            "width": 0.7244,
+            "height": 0.0178
+          }
+        }
+      ]
+    }
+  ]
+}
