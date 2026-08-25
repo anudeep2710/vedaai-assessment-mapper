@@ -1449,8 +1449,8 @@ button:focus-visible {
     height: 20px;
   }
 
-  .profile-button span,
-  .profile-button svg,
+  .profile-button > span:not(.avatar),
+  .profile-button > svg,
   .topbar-actions > .icon-button:first-child,
   .topbar-actions > .sparkle-button {
     display: none;
