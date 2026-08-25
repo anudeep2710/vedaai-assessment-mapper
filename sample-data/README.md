@@ -2,7 +2,7 @@
 
 Upload these two files together in the assessment mapper:
 
-- `tough-question-paper.pdf` - a three-page printed paper with 19 extractable question entries, including labelled sub-parts.
+- `tough-question-paper.pdf` - a three-page printed paper with 18 extractable question entries, including labelled sub-parts.
 - `tough-answer-sheet.pdf` - a four-page blue-ink answer sheet with answers deliberately written out of order.
 
 The same pages are also available as PNG files for image-upload testing.
