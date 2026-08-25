@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { ChevronDown, ChevronLeft, ChevronRight, Maximize2, Minus, Plus, RotateCcw, Sparkles } from "lucide-react";
-import type { AnalysisResult, AnswerRegion, AssessmentQuestion, UploadedFiles } from "@/lib/types";
+import type { AnalysisResult, AssessmentQuestion, UploadedFiles } from "@/lib/types";
 
 type ResultsViewProps = {
   analysis: AnalysisResult;
@@ -130,7 +131,7 @@ function AnswerPaper({
     <div className="paper-scale-frame">
       <div className={`answer-paper${previewIsImage ? " is-image-preview" : ""}`} style={{ transform: `scale(${zoom / 100})` }}>
         {previewUrl && previewIsImage ? (
-          <img className="uploaded-answer-preview" src={previewUrl} alt="Uploaded handwritten answer sheet" />
+          <Image className="uploaded-answer-preview" src={previewUrl} alt="Uploaded handwritten answer sheet" fill unoptimized sizes="(max-width: 760px) 100vw, 50vw" />
         ) : (
           <>
             <div className="paper-grid" />
@@ -199,19 +200,17 @@ export function ResultsView({
   onReset,
 }: ResultsViewProps) {
   const [showAllFeedback, setShowAllFeedback] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(() => {
+    const file = files.answerSheet;
+    if (!file || !file.type.startsWith("image/")) return null;
+    return URL.createObjectURL(file);
+  }, [files.answerSheet]);
   const previewIsImage = Boolean(files.answerSheet?.type.startsWith("image/") && previewUrl && analysis.mode !== "demo");
 
   useEffect(() => {
-    const file = files.answerSheet;
-    if (!file || !file.type.startsWith("image/")) {
-      setPreviewUrl(null);
-      return;
-    }
-    const nextUrl = URL.createObjectURL(file);
-    setPreviewUrl(nextUrl);
-    return () => URL.revokeObjectURL(nextUrl);
-  }, [files.answerSheet]);
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const selectedQuestion = analysis.questions.find((question) => question.id === selectedId);
   const answerPageLabel = analysis.pages > 1 ? `Page ${answerPage} of ${analysis.pages}` : "Page 1 of 1";
