@@ -7,3 +7,4 @@ out/
 *.log
 .playwright-cli/
 output/
+__pycache__/
