@@ -9,7 +9,7 @@ const EXTRACTION_PROMPT = `You are an assessment extraction and answer-mapping e
 Return JSON only with this shape:
 {
   "pages": number,
-  "confidence": number,
+  "confidence": 0.0,
   "questions": [
     {
       "id": "q-1",
@@ -31,6 +31,7 @@ Rules:
 - Find answers even when the student answered out of order.
 - Keep unanswered questions in the list with an empty regions array and marks 0.
 - Put handwriting that cannot be matched into unmatchedAnswers.
+- Express the overall confidence and each region confidence as decimals between 0 and 1.
 - Each bbox uses normalized percentages from the top-left of the answer-sheet page: x, y, width, height are all between 0 and 100.
 - Use the smallest rectangle that contains the complete handwritten answer; use multiple regions if an answer spans pages.
 - Never put question-paper regions in the answer-sheet regions.

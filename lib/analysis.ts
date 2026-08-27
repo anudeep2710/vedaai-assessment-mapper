@@ -105,7 +105,9 @@ export function normalizeAnalysis(value: unknown, mode: AnalysisResult["mode"], 
   const unmatchedAnswers = rawUnmatched.map(normalizeUnmatched);
   const pages = Math.max(1, Math.round(asNumber(result.pages ?? result.pageCount, 1)));
   const matchedAnswers = Math.max(0, Math.round(asNumber(result.matchedAnswers, questions.filter((question) => question.regions.length > 0).length)));
-  const confidence = Math.round(Math.max(0, Math.min(100, asNumber(result.confidence, 82))));
+  const rawConfidence = asNumber(result.confidence, 82);
+  const confidencePercent = rawConfidence >= 0 && rawConfidence <= 1 ? rawConfidence * 100 : rawConfidence;
+  const confidence = Math.round(Math.max(0, Math.min(100, confidencePercent)));
 
   return {
     mode,
