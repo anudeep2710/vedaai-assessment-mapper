@@ -57,24 +57,25 @@ button:focus-visible {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
+  grid-template-columns: 203px minmax(0, 1fr);
   gap: 6px;
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  padding: 4px;
+  padding: 6px;
   background: var(--workspace);
 }
 
 .app-shell.has-compact-nav {
   grid-template-columns: 32px minmax(0, 1fr);
+  padding: 4px;
 }
 
 .sidebar {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  padding: 13px 10px 10px;
+  padding: 13px 16px 18px;
   border-radius: 9px;
   background: var(--surface);
   box-shadow: var(--shadow);
@@ -89,14 +90,14 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 30px;
-  padding: 0 7px;
+  height: 40px;
+  padding: 0 2px;
 }
 
 .brand-mark {
   display: inline-flex;
-  width: 21px;
-  height: 21px;
+  width: 27px;
+  height: 27px;
   flex: 0 0 auto;
 }
 
@@ -112,7 +113,7 @@ button:focus-visible {
 }
 
 .brand-name {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 750;
   letter-spacing: -0.04em;
 }
@@ -135,14 +136,14 @@ button:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 25px;
-  margin: 21px 7px 26px;
+  height: 33px;
+  margin: 29px 0 34px;
   padding: 0 8px;
   border: 1.5px solid var(--orange);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--charcoal);
   color: #fff;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 650;
   white-space: nowrap;
 }
@@ -191,7 +192,7 @@ button:focus-visible {
 
 .sidebar-bottom {
   display: grid;
-  gap: 12px;
+  gap: 4px;
   margin-top: auto;
 }
 
@@ -203,7 +204,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 7px;
+  padding: 8px;
   border-radius: 10px;
   background: #f4f4f3;
 }
@@ -211,8 +212,8 @@ button:focus-visible {
 .school-seal {
   display: block;
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
 }
 
@@ -232,13 +233,13 @@ button:focus-visible {
 }
 
 .school-card strong {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .school-card span {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 7px;
+  font-size: 8px;
 }
 
 .workspace {
@@ -254,10 +255,16 @@ button:focus-visible {
   min-height: 36px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px 0 7px;
+  padding: 0 12px 0 18px;
   border-radius: 9px;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+@media (min-width: 641px) {
+  .app-shell:not(.has-compact-nav) .topbar {
+    min-height: 42px;
+  }
 }
 
 .topbar-leading,
@@ -269,7 +276,7 @@ button:focus-visible {
 }
 
 .topbar-leading {
-  gap: 7px;
+  gap: 10px;
 }
 
 .topbar-back {
@@ -300,7 +307,7 @@ button:focus-visible {
 }
 
 .topbar-actions {
-  gap: 7px;
+  gap: 10px;
 }
 
 .icon-button,
@@ -316,9 +323,14 @@ button:focus-visible {
 
 .icon-button {
   position: relative;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
+}
+
+.icon-button > svg {
+  width: 16px;
+  height: 16px;
 }
 
 .icon-button:hover,
@@ -348,7 +360,7 @@ button:focus-visible {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .avatar {
@@ -365,8 +377,8 @@ button:focus-visible {
 }
 
 .avatar.is-small {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-width: 1px;
   font-size: 6px;
 }
@@ -410,8 +422,9 @@ button:focus-visible {
 
 .upload-copy h1 {
   margin: 0;
-  font-size: clamp(21px, 2.4vw, 28px);
+  font-size: clamp(24px, 2.8vw, 27px);
   font-weight: 760;
+  line-height: 28px;
   letter-spacing: -0.045em;
 }
 
@@ -428,14 +441,15 @@ button:focus-visible {
 .upload-copy p {
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 12px;
 }
 
 .teacher-badge {
   position: relative;
   width: 78px;
   height: 78px;
-  margin: 14px 0 22px;
+  margin: 26px 0 22px;
   overflow: hidden;
   border-radius: 50%;
 }
@@ -446,17 +460,17 @@ button:focus-visible {
 
 .upload-cards {
   display: grid;
-  width: min(506px, 100%);
+  width: min(530px, 100%);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  padding: 7px;
+  gap: 8px;
+  padding: 8px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.76);
 }
 
 .upload-card {
   display: flex;
-  min-height: 114px;
+  min-height: 120px;
   align-items: center;
   justify-content: center;
   padding: 15px;
@@ -479,21 +493,26 @@ button:focus-visible {
 
 .upload-card:not(.has-file) {
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .upload-icon {
   display: grid;
-  width: 25px;
-  height: 25px;
+  width: 34px;
+  height: 34px;
   place-items: center;
   border-radius: 7px;
   background: #f0f0ef;
   color: var(--ink);
 }
 
+.upload-icon > svg {
+  width: 18px;
+  height: 18px;
+}
+
 .upload-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -629,9 +648,9 @@ button:focus-visible {
 .start-button {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   min-height: 31px;
-  padding: 0 15px;
+  padding: 0 12px;
   border: 0;
   border-radius: 18px;
   background: var(--charcoal);
@@ -1376,7 +1395,7 @@ button:focus-visible {
 
 @media (max-width: 1050px) {
   .app-shell {
-    grid-template-columns: 196px minmax(0, 1fr);
+    grid-template-columns: 203px minmax(0, 1fr);
   }
 
   .app-shell.has-compact-nav {

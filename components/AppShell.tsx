@@ -76,7 +76,7 @@ function Sidebar({ compact }: { compact: boolean }) {
             <Image className="school-seal" src="/brand/delhi-public-school.png" alt="Delhi Public School" width={59} height={60} />
             <div>
               <strong>Delhi Public School</strong>
-              <span>Bakhtawar Sirohi City</span>
+              <span>Bokaro Steel City</span>
             </div>
           </div>
         )}

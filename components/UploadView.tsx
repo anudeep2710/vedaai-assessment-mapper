@@ -116,7 +116,7 @@ export function UploadView({ files, onFilesChange, onStart, errorMessage }: Uplo
           Start Mapping <span>→</span>
         </button>
       </div>
-      <p className="upload-help">We’ll extract printed question order, locate answers, and show each mapped region.</p>
+      <p className="upload-help">Once both files are uploaded, you&apos;ll be able to map answers with questions</p>
     </section>
   );
 }
