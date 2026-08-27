@@ -436,33 +436,13 @@ button:focus-visible {
   width: 78px;
   height: 78px;
   margin: 14px 0 22px;
-}
-
-.teacher-badge-ring {
-  position: absolute;
-  inset: 8px;
-  display: grid;
-  place-items: center;
-  border: 7px solid #f5c5b4;
+  overflow: hidden;
   border-radius: 50%;
-  background: #fbe2d8;
-  box-shadow: 0 0 0 6px rgba(255, 130, 91, 0.12);
-  font-size: 28px;
 }
 
-.teacher-orbit {
-  position: absolute;
-  z-index: 1;
-  width: 6px;
-  height: 6px;
-  border: 1px solid var(--orange);
-  border-radius: 50%;
-  background: #fff;
+.teacher-badge > img {
+  object-fit: cover;
 }
-
-.orbit-one { top: 7px; right: 16px; }
-.orbit-two { bottom: 9px; left: 8px; }
-.orbit-three { right: 3px; bottom: 19px; }
 
 .upload-cards {
   display: grid;

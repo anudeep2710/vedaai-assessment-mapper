@@ -73,14 +73,14 @@ function Sidebar({ compact }: { compact: boolean }) {
         </button>
         {!compact && (
           <div className="school-card">
-            <Image className="school-seal" src="/brand/delhi-public-school.svg" alt="" width={40} height={40} />
+            <Image className="school-seal" src="/brand/delhi-public-school.png" alt="Delhi Public School" width={59} height={60} />
             <div>
               <strong>Delhi Public School</strong>
               <span>Bakhtawar Sirohi City</span>
             </div>
           </div>
         )}
-        {compact && <Image className="school-seal compact-seal" src="/brand/delhi-public-school.svg" alt="" width={40} height={40} />}
+        {compact && <Image className="school-seal compact-seal" src="/brand/delhi-public-school.png" alt="Delhi Public School" width={59} height={60} />}
       </div>
     </aside>
   );
@@ -142,13 +142,8 @@ export function AppShell({ children, compactNav = false, onBack }: AppShellProps
 
 export function TeacherBadge() {
   return (
-    <div className="teacher-badge" aria-hidden="true">
-      <span className="teacher-orbit orbit-one" />
-      <span className="teacher-orbit orbit-two" />
-      <span className="teacher-orbit orbit-three" />
-      <div className="teacher-badge-ring">
-        <span>👩🏽‍🏫</span>
-      </div>
+    <div className="teacher-badge">
+      <Image src="/brand/teacher-badge.png" alt="Teacher reviewing student work" fill sizes="78px" priority />
     </div>
   );
 }
