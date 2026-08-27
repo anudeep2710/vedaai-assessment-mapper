@@ -5,7 +5,6 @@ import { AppShell } from "@/components/AppShell";
 import { ProcessingView } from "@/components/ProcessingView";
 import { ResultsView } from "@/components/ResultsView";
 import { UploadView } from "@/components/UploadView";
-import { DEMO_ANALYSIS } from "@/lib/demo-data";
 import type { AnalysisResult, UploadedFiles } from "@/lib/types";
 
 type ViewState = "upload" | "processing" | "results";
@@ -22,6 +21,7 @@ export default function HomePage() {
   const [selectedId, setSelectedId] = useState("q-2");
   const [answerPage, setAnswerPage] = useState(1);
   const [zoom, setZoom] = useState(100);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const openResults = (nextAnalysis: AnalysisResult) => {
     setAnalysis(nextAnalysis);
@@ -32,13 +32,10 @@ export default function HomePage() {
     setView("results");
   };
 
-  const handleDemo = () => {
-    openResults(DEMO_ANALYSIS);
-  };
-
   const handleStart = async () => {
     if (!files.questionPaper || !files.answerSheet) return;
 
+    setErrorMessage(null);
     setView("processing");
     setProgress(18);
     window.setTimeout(() => setProgress(36), 300);
@@ -59,12 +56,15 @@ export default function HomePage() {
       setProgress(92);
       await sleep(Math.max(0, 1_800 - (Date.now() - startedAt)));
       openResults(payload as AnalysisResult);
-    } catch {
+    } catch (error) {
       await sleep(Math.max(0, 1_800 - (Date.now() - startedAt)));
-      openResults({
-        ...DEMO_ANALYSIS,
-        note: "AI extraction could not be reached, so a deterministic sample review is shown. Your files are still attached for retry.",
-      });
+      const message = error instanceof Error && error.name === "AbortError"
+        ? "The extraction timed out. Try smaller files or retry."
+        : error instanceof Error
+          ? error.message
+          : "The files could not be analyzed. Check the file type and retry.";
+      setErrorMessage(message);
+      setView("upload");
     } finally {
       window.clearTimeout(timeout);
     }
@@ -77,6 +77,7 @@ export default function HomePage() {
     setProgress(12);
     setSelectedId("q-2");
     setAnswerPage(1);
+    setErrorMessage(null);
   };
 
   const selectQuestion = (id: string) => {
@@ -86,9 +87,14 @@ export default function HomePage() {
     if (firstRegionPage) setAnswerPage(firstRegionPage);
   };
 
+  const handleFilesChange = (nextFiles: UploadedFiles) => {
+    setFiles(nextFiles);
+    setErrorMessage(null);
+  };
+
   return (
     <AppShell compactNav={view === "results"} onBack={view === "upload" ? undefined : () => setView("upload")}>
-      {view === "upload" && <UploadView files={files} onFilesChange={setFiles} onStart={handleStart} onDemo={handleDemo} />}
+      {view === "upload" && <UploadView files={files} onFilesChange={handleFilesChange} onStart={handleStart} errorMessage={errorMessage} />}
       {view === "processing" && <ProcessingView progress={progress} />}
       {view === "results" && analysis && (
         <ResultsView

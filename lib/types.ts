@@ -1,4 +1,4 @@
-export type ExtractionMode = "demo" | "gemini" | "groq";
+export type ExtractionMode = "gemini" | "groq";
 
 export type AnswerStatus = "correct" | "partial" | "unanswered";
 

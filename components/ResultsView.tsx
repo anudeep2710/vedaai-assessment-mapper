@@ -206,7 +206,7 @@ export function ResultsView({
     if (!file || !file.type.startsWith("image/")) return null;
     return URL.createObjectURL(file);
   }, [files.answerSheet]);
-  const previewIsImage = Boolean(files.answerSheet?.type.startsWith("image/") && previewUrl && analysis.mode !== "demo");
+  const previewIsImage = Boolean(files.answerSheet?.type.startsWith("image/") && previewUrl);
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -310,7 +310,6 @@ export function ResultsView({
         <div className="answer-panel-footer">
           <span><span className="legend-dot is-mapped" /> Selected answer region</span>
           <span><span className="legend-dot is-unmatched" /> Unmatched writing</span>
-          {analysis.mode === "demo" && <span className="footer-file-note">Sample sheet preview · upload an image for live regions</span>}
         </div>
       </div>
     </section>

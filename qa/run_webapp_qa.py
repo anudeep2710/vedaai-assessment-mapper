@@ -19,6 +19,42 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+def qa_analysis() -> dict[str, object]:
+    questions: list[dict[str, object]] = []
+    for number in range(1, 14):
+        answered = number != 4
+        max_marks = 2 if number <= 5 else 5
+        questions.append({
+            "id": f"q-{number}",
+            "number": str(number),
+            "text": f"QA fixture question {number}: explain the evidence and show your working.",
+            "maxMarks": max_marks,
+            "marks": max_marks if answered else 0,
+            "answerText": "Answer detected in the fixture." if answered else "No answer detected.",
+            "feedback": "QA feedback for the selected answer.",
+            "regions": [{
+                "page": ((number - 1) // 4) + 1,
+                "bbox": [6, 8 + ((number - 1) % 4) * 18, 88, 12],
+                "confidence": 0.94,
+            }] if answered else [],
+        })
+    return {
+        "mode": "gemini",
+        "providerLabel": "QA fixture",
+        "pages": 4,
+        "matchedAnswers": 12,
+        "confidence": 96,
+        "questions": questions,
+        "unmatchedAnswers": [{
+            "id": "unmatched-1",
+            "label": "Unmatched note",
+            "page": 2,
+            "text": "Fixture handwriting that is not tied to a question.",
+            "bbox": [63, 78, 29, 9],
+        }],
+    }
+
+
 def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
@@ -36,9 +72,15 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
         page.on("requestfailed", lambda request: failures.append(f"{request.method} {request.url}: {request.failure}"))
 
         try:
+            page.route("**/api/analyze", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(qa_analysis())))
             page.goto(base_url, wait_until="networkidle")
             checks["page_loaded"] = page.locator("#upload-heading").is_visible()
             require(checks["page_loaded"], "Upload heading did not render")
+            font_family = page.locator("body").evaluate("element => getComputedStyle(element).fontFamily")
+            require("Bricolage" in font_family, f"Bricolage Grotesque is not active: {font_family}")
+            require(page.locator('.brand-mark img[src*="vedaai.svg"]').count() >= 1, "Supplied VedaAI logo did not render")
+            require(page.locator(".nav-icon").count() == 5, "Supplied sidebar icon set did not render")
+            checks["reference_assets_and_font"] = True
             page.screenshot(path=str(output_dir / f"{case_index:02d}-{label}-upload-empty.png"), full_page=True)
 
             start_button = page.get_by_role("button", name=re.compile(r"^Start Mapping"))
@@ -99,11 +141,9 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
             require(page.locator("#upload-heading").is_visible(), "Reset did not return to the upload state")
             checks["reset_flow"] = True
 
-            page.get_by_role("button", name="Preview a sample review").click()
-            page.get_by_role("heading", name="Extracted Questions").wait_for(timeout=10000)
-            require(page.locator(".extraction-status").is_visible(), "Demo preview has no extraction status")
-            checks["demo_preview"] = True
-            page.screenshot(path=str(output_dir / f"{case_index:02d}-{label}-demo-review.png"), full_page=True)
+            require(page.get_by_role("button", name="Preview a sample review").count() == 0, "Sample review action is still exposed")
+            checks["sample_review_removed"] = True
+            page.screenshot(path=str(output_dir / f"{case_index:02d}-{label}-upload-reset.png"), full_page=True)
         except Exception as error:  # Keep the report useful even if one check fails.
             errors.append(f"{type(error).__name__}: {error}")
         finally:

@@ -9,7 +9,7 @@ type UploadViewProps = {
   files: UploadedFiles;
   onFilesChange: (files: UploadedFiles) => void;
   onStart: () => void;
-  onDemo: () => void;
+  errorMessage?: string | null;
 };
 
 function formatBytes(bytes: number): string {
@@ -74,7 +74,7 @@ function UploadCard({
   );
 }
 
-export function UploadView({ files, onFilesChange, onStart, onDemo }: UploadViewProps) {
+export function UploadView({ files, onFilesChange, onStart, errorMessage }: UploadViewProps) {
   const ready = Boolean(files.questionPaper && files.answerSheet);
 
   return (
@@ -101,12 +101,19 @@ export function UploadView({ files, onFilesChange, onStart, onDemo }: UploadView
         />
       </div>
 
+      {errorMessage && (
+        <div className="upload-error" role="alert">
+          <span className="upload-error-icon">!</span>
+          <div>
+            <strong>Couldn&apos;t analyze these files</strong>
+            <p>{errorMessage}</p>
+          </div>
+        </div>
+      )}
+
       <div className="upload-actions">
         <button className="start-button" type="button" disabled={!ready} onClick={onStart}>
           Start Mapping <span>→</span>
-        </button>
-        <button className="demo-button" type="button" onClick={onDemo}>
-          Preview a sample review
         </button>
       </div>
       <p className="upload-help">We’ll extract printed question order, locate answers, and show each mapped region.</p>

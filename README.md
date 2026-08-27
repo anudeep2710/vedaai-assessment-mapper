@@ -9,7 +9,7 @@ An assessment review workspace for extracting printed questions, locating handwr
 - Printed-order question list with labelled sub-parts preserved as separate entries.
 - Answer mapping for answers written out of order, unanswered questions, and unmatched writing.
 - Normalized answer-region overlays on a notebook-style answer sheet viewer.
-- Gemini extraction with Groq vision fallback, plus a deterministic demo mode when AI is unavailable.
+- Gemini extraction with Groq vision fallback.
 - Responsive desktop/mobile layout based on the provided VedaAI reference screens.
 
 ## Local setup
@@ -26,4 +26,4 @@ The app does not need a database for this assignment: files are processed in mem
 
 ## Important limitation
 
-AI region coordinates are only as accurate as the model's document vision response. When both providers are unavailable, the app clearly labels the deterministic review as demo data instead of presenting it as a real grading result.
+AI region coordinates are only as accurate as the model's document vision response. When both providers are unavailable, the app keeps the uploaded files attached and shows a retryable error instead of presenting fabricated grading data.

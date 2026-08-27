@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { DEMO_ANALYSIS } from "@/lib/demo-data";
 import { extractJsonObject, normalizeAnalysis } from "@/lib/analysis";
 
 export const runtime = "nodejs";
@@ -123,10 +122,7 @@ export async function POST(request: Request) {
     }
 
     if (questionPaper.size > 15_000_000 || answerSheet.size > 15_000_000) {
-      return NextResponse.json({
-        ...DEMO_ANALYSIS,
-        note: "The file is larger than the serverless AI limit, so a demo mapping is shown. Compress the files and retry.",
-      });
+      return NextResponse.json({ error: "Each file must be 15 MB or smaller. Compress the files and retry." }, { status: 413 });
     }
 
     try {
@@ -140,17 +136,11 @@ export async function POST(request: Request) {
       const groqResult = await callGroq(questionPaper, answerSheet);
       if (groqResult?.questions.length) return NextResponse.json(groqResult);
     } catch {
-      // Fall through to a deterministic sample result so an API outage never strands the teacher.
+      // Keep the error response honest when both providers fail; never fabricate a review.
     }
 
-    return NextResponse.json({
-      ...DEMO_ANALYSIS,
-      note: "AI extraction was unavailable for this run, so the review is shown with a deterministic sample mapping.",
-    });
+    return NextResponse.json({ error: "AI extraction was unavailable. Configure Gemini or Groq and retry." }, { status: 503 });
   } catch {
-    return NextResponse.json({
-      ...DEMO_ANALYSIS,
-      note: "The files could not be analyzed, so the review is shown with a deterministic sample mapping.",
-    });
+    return NextResponse.json({ error: "The files could not be analyzed. Check the file type and retry." }, { status: 500 });
   }
 }
