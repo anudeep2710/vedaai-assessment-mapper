@@ -1,16 +1,16 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import Image from "next/image";
 
 export function ProcessingView({ progress }: { progress: number }) {
   return (
     <section className="processing-view" aria-live="polite">
       <div className="processing-stars" aria-hidden="true">
-        <Sparkles size={56} strokeWidth={1.45} />
+        <Image src="/extracting-stars.svg" alt="" width={129} height={135} priority />
       </div>
       <h1>Extracting<span>...</span></h1>
-      <p>Reading question order, answers, and regions</p>
-      <div className="processing-progress" aria-label={`${progress}% complete`}>
+      <p>This may take a while</p>
+      <div className="processing-progress" role="progressbar" aria-label="Extraction progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="processing-steps">

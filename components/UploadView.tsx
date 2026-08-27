@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type ChangeEvent, type DragEvent } from "react";
-import { FileText, Image as ImageIcon, Trash2, Upload } from "lucide-react";
+import { FileText, Trash2, Upload } from "lucide-react";
 import { TeacherBadge } from "./AppShell";
 import type { UploadedFiles } from "@/lib/types";
 
@@ -67,7 +67,7 @@ function UploadCard({
         <>
           <div className="upload-icon"><Upload size={15} strokeWidth={2.2} /></div>
           <div className="upload-title">Upload <span>{title}</span></div>
-          <div className="upload-subtitle"><ImageIcon size={11} /> PDF, JPG, PNG · max 15 MB</div>
+          <div className="upload-subtitle">Max 10MB</div>
         </>
       )}
     </div>
@@ -80,7 +80,7 @@ export function UploadView({ files, onFilesChange, onStart, onDemo }: UploadView
   return (
     <section className="upload-view" aria-labelledby="upload-heading">
       <div className="upload-copy">
-        <h1 id="upload-heading">Upload <span>Question Paper &amp; Answer Sheets</span></h1>
+        <h1 id="upload-heading">Upload <span>Question Paper<br className="mobile-title-break" /> &amp; Answer Sheets</span></h1>
         <p>Upload both files to get started</p>
       </div>
 

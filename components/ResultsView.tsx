@@ -200,6 +200,7 @@ export function ResultsView({
   onReset,
 }: ResultsViewProps) {
   const [showAllFeedback, setShowAllFeedback] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"questions" | "answer">("questions");
   const previewUrl = useMemo(() => {
     const file = files.answerSheet;
     if (!file || !file.type.startsWith("image/")) return null;
@@ -217,7 +218,28 @@ export function ResultsView({
 
   return (
     <section className="results-view" aria-label="Question and answer mapping review">
-      <div className="results-panel questions-panel">
+      <div className="mobile-results-tabs" role="tablist" aria-label="Review panels">
+        <button
+          className={mobileTab === "questions" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === "questions"}
+          onClick={() => setMobileTab("questions")}
+        >
+          Questions
+        </button>
+        <button
+          className={mobileTab === "answer" ? "is-active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === "answer"}
+          onClick={() => setMobileTab("answer")}
+        >
+          Answer Sheet
+        </button>
+      </div>
+
+      <div className={`results-panel questions-panel${mobileTab === "questions" ? " is-mobile-visible" : ""}`}>
         <div className="questions-panel-head">
           <div>
             <span className="eyebrow">Assessment review</span>
@@ -259,7 +281,7 @@ export function ResultsView({
         </div>
       </div>
 
-      <div className="results-panel answer-panel">
+      <div className={`results-panel answer-panel${mobileTab === "answer" ? " is-mobile-visible" : ""}`}>
         <div className="answer-panel-head">
           <div>
             <span className="eyebrow">Mapped source</span>
