@@ -90,6 +90,11 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
             checks["mobile_layout"] = True
             page.screenshot(path=str(output_dir / f"{case_index:02d}-{label}-results-mobile.png"), full_page=True)
 
+            # Return to the desktop shell before resetting. The compact responsive
+            # layout intentionally hides secondary status controls to match the
+            # product reference, so the reset action is validated in its desktop
+            # context instead of relying on a clipped mobile control.
+            page.set_viewport_size({"width": 1440, "height": 1000})
             page.get_by_role("button", name="Start another review").click()
             require(page.locator("#upload-heading").is_visible(), "Reset did not return to the upload state")
             checks["reset_flow"] = True

@@ -8,3 +8,4 @@ out/
 .playwright-cli/
 output/
 __pycache__/
+qa/fixtures/
