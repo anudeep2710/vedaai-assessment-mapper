@@ -33,7 +33,7 @@ body {
   margin: 0;
   background: #414141;
   color: var(--ink);
-  font-family: "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-bricolage), "Bricolage Grotesque", "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -94,17 +94,16 @@ button:focus-visible {
 }
 
 .brand-mark {
-  display: inline-grid;
+  display: inline-flex;
   width: 21px;
   height: 21px;
-  place-items: center;
-  border-radius: 5px;
-  background: var(--charcoal);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: -0.12em;
-  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .brand-mark.is-compact {
@@ -116,6 +115,15 @@ button:focus-visible {
   font-size: 14px;
   font-weight: 750;
   letter-spacing: -0.04em;
+}
+
+.nav-icon {
+  display: block;
+  width: 16px;
+  height: 17px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  opacity: 0.9;
 }
 
 .sidebar-collapse-mark {
@@ -176,6 +184,11 @@ button:focus-visible {
   padding: 0;
 }
 
+.sidebar.is-compact .nav-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .sidebar-bottom {
   display: grid;
   gap: 12px;
@@ -196,16 +209,11 @@ button:focus-visible {
 }
 
 .school-seal {
-  display: grid;
+  display: block;
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 1px solid #c2d6bb;
-  border-radius: 50%;
-  background: #f3faee;
-  color: #65a153;
-  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
 }
 
 .school-seal.compact-seal {
@@ -363,6 +371,14 @@ button:focus-visible {
   font-size: 6px;
 }
 
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .mobile-brand,
 .mobile-menu-button {
   display: none;
@@ -514,6 +530,45 @@ button:focus-visible {
   font-size: 8px;
 }
 
+.upload-error {
+  display: flex;
+  width: min(506px, 100%);
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid #f2c9bd;
+  border-radius: 10px;
+  background: #fff8f5;
+  color: #774438;
+  text-align: left;
+}
+
+.upload-error-icon {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.upload-error strong {
+  display: block;
+  font-size: 9px;
+}
+
+.upload-error p {
+  margin: 3px 0 0;
+  color: #9a6e62;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
 .file-chip {
   display: flex;
   width: min(100%, 228px);
@@ -582,6 +637,7 @@ button:focus-visible {
 .upload-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   margin-top: 27px;
 }
@@ -618,21 +674,6 @@ button:focus-visible {
 .start-button span {
   font-size: 14px;
   line-height: 0;
-}
-
-.demo-button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  font-size: 9px;
-  text-decoration: underline;
-  text-decoration-color: #c4c1bd;
-  text-underline-offset: 3px;
-}
-
-.demo-button:hover {
-  color: var(--orange);
 }
 
 .upload-help {
@@ -820,8 +861,6 @@ button:focus-visible {
 
 .status-dot.is-gemini { background: #658eea; }
 .status-dot.is-groq { background: #b27bee; }
-.status-dot.is-demo { background: var(--amber); }
-
 .status-divider {
   color: #cfcdca;
 }
@@ -1337,7 +1376,7 @@ button:focus-visible {
   border-radius: 5px 5px 5px 0;
   background: #4dbd3e;
   color: #fff;
-  font-family: "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-bricolage), "Bricolage Grotesque", "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
   font-size: 8px;
   font-weight: 800;
 }
@@ -1352,7 +1391,7 @@ button:focus-visible {
   bottom: 1.4%;
   z-index: 5;
   color: rgba(42, 67, 118, 0.46);
-  font-family: "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-bricolage), "Bricolage Grotesque", "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
   font-size: 7px;
 }
 

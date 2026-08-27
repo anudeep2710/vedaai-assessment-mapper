@@ -1,16 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import type { ReactNode } from "react";
 import {
   Bell,
-  BookOpen,
   ChevronDown,
   CircleHelp,
-  ClipboardList,
   Clock3,
-  FileText,
-  GraduationCap,
-  LayoutDashboard,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -22,17 +18,17 @@ type AppShellProps = {
 };
 
 const navigation = [
-  { label: "Home", icon: LayoutDashboard },
-  { label: "My Classroom", icon: GraduationCap },
-  { label: "Assignments", icon: ClipboardList },
-  { label: "Exams", icon: FileText, active: true },
-  { label: "My Library", icon: BookOpen },
+  { label: "Home", iconSrc: "/icons/home.svg" },
+  { label: "My Classroom", iconSrc: "/icons/classroom.svg" },
+  { label: "Assignments", iconSrc: "/icons/assignments.svg" },
+  { label: "Exams", iconSrc: "/icons/exams.svg", active: true },
+  { label: "My Library", iconSrc: "/icons/library.svg" },
 ];
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <span className={`brand-mark${compact ? " is-compact" : ""}`} aria-hidden="true">
-      V
+      <Image src="/brand/vedaai.svg" alt="" width={40} height={40} priority />
     </span>
   );
 }
@@ -40,7 +36,7 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
 function Avatar({ small = false }: { small?: boolean }) {
   return (
     <span className={`avatar${small ? " is-small" : ""}`} aria-hidden="true">
-      MR
+      <Image src="/brand/profile-avatar.svg" alt="" width={32} height={32} />
     </span>
   );
 }
@@ -62,9 +58,9 @@ function Sidebar({ compact }: { compact: boolean }) {
       )}
 
       <nav className="sidebar-nav" aria-label="Main navigation">
-        {navigation.map(({ label, icon: Icon, active }) => (
+        {navigation.map(({ label, iconSrc, active }) => (
           <button className={`nav-item${active ? " is-active" : ""}`} type="button" key={label} title={compact ? label : undefined}>
-            <Icon size={compact ? 16 : 13} strokeWidth={1.8} />
+            <Image className="nav-icon" src={iconSrc} alt="" width={20} height={20} />
             {!compact && <span>{label}</span>}
           </button>
         ))}
@@ -77,14 +73,14 @@ function Sidebar({ compact }: { compact: boolean }) {
         </button>
         {!compact && (
           <div className="school-card">
-            <div className="school-seal">✺</div>
+            <Image className="school-seal" src="/brand/delhi-public-school.svg" alt="" width={40} height={40} />
             <div>
               <strong>Delhi Public School</strong>
               <span>Bakhtawar Sirohi City</span>
             </div>
           </div>
         )}
-        {compact && <div className="school-seal compact-seal">✺</div>}
+        {compact && <Image className="school-seal compact-seal" src="/brand/delhi-public-school.svg" alt="" width={40} height={40} />}
       </div>
     </aside>
   );
