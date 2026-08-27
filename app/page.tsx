@@ -46,7 +46,7 @@ export default function HomePage() {
     formData.append("questionPaper", files.questionPaper);
     formData.append("answerSheet", files.answerSheet);
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 45_000);
+    const timeout = window.setTimeout(() => controller.abort(), 110_000);
     const startedAt = Date.now();
 
     try {

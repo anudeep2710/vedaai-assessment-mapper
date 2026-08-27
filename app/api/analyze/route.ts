@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { extractJsonObject, normalizeAnalysis } from "@/lib/analysis";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const EXTRACTION_PROMPT = `You are an assessment extraction and answer-mapping engine. Inspect the question paper and the student's handwritten answer sheet.
 
