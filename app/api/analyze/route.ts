@@ -17,6 +17,7 @@ Return JSON only with this shape:
       "text": "the printed question, preserving wording and order",
       "maxMarks": number,
       "marks": number,
+      "status": "correct | partial | incorrect | unanswered",
       "answerText": "short transcription or No answer detected.",
       "feedback": "one concise grading insight",
       "regions": [{"page": 1, "bbox": [x, y, width, height], "confidence": 0.0}]
@@ -29,7 +30,8 @@ Rules:
 - Extract every printed question in printed order.
 - Treat labelled sub-parts such as 11 (a) and 11 (b) as separate entries, while preserving the original number.
 - Find answers even when the student answered out of order.
-- Keep unanswered questions in the list with an empty regions array and marks 0.
+- Keep unanswered questions in the list with status unanswered, an empty regions array, and marks 0.
+- Use status incorrect—not unanswered—when writing is present but earns 0 marks, and keep its answer regions.
 - Put handwriting that cannot be matched into unmatchedAnswers.
 - Express the overall confidence and each region confidence as decimals between 0 and 1.
 - Each bbox uses normalized percentages from the top-left of the answer-sheet page: x, y, width, height are all between 0 and 100.

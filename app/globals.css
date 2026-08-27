@@ -1015,6 +1015,7 @@ button:focus-visible {
   color: #c48822;
 }
 
+.score-pill.is-incorrect,
 .score-pill.is-unanswered {
   background: var(--red-soft);
   color: var(--red);

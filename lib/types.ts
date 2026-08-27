@@ -1,6 +1,6 @@
 export type ExtractionMode = "gemini" | "groq";
 
-export type AnswerStatus = "correct" | "partial" | "unanswered";
+export type AnswerStatus = "correct" | "partial" | "incorrect" | "unanswered";
 
 export type AnswerRegion = {
   page: number;

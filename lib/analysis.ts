@@ -52,8 +52,23 @@ function normalizeQuestion(value: unknown, index: number): AssessmentQuestion {
     : Array.isArray(item.answerRegions)
       ? item.answerRegions
       : [];
-  const regions = rawRegions.map(normalizeRegion).filter((region): region is AnswerRegion => Boolean(region));
-  const status = marks === 0 ? "unanswered" : marks === maxMarks ? "correct" : "partial";
+  const detectedRegions = rawRegions.map(normalizeRegion).filter((region): region is AnswerRegion => Boolean(region));
+  const rawAnswerText = asString(item.answerText ?? item.answer);
+  const rawStatus = asString(item.status).toLowerCase();
+  const suppliedStatus = ["correct", "partial", "incorrect", "unanswered"].includes(rawStatus)
+    ? rawStatus as AssessmentQuestion["status"]
+    : null;
+  const explicitlyUnanswered = /\b(no answer|not answered|unanswered|left blank|not attempted|skipped|omitted)\b/i.test(rawAnswerText);
+  const inferredStatus: AssessmentQuestion["status"] = marks === maxMarks
+    ? "correct"
+    : marks > 0
+      ? "partial"
+      : detectedRegions.length > 0 && !explicitlyUnanswered
+        ? "incorrect"
+        : "unanswered";
+  const status = suppliedStatus || inferredStatus;
+  const regions = status === "unanswered" ? [] : detectedRegions;
+  const answerText = rawAnswerText || (status === "unanswered" ? "No answer detected." : "Answer detected.");
 
   return {
     id: asString(item.id, `q-${index + 1}`),
@@ -62,7 +77,7 @@ function normalizeQuestion(value: unknown, index: number): AssessmentQuestion {
     maxMarks,
     marks,
     status,
-    answerText: asString(item.answerText ?? item.answer, marks === 0 ? "No answer detected." : "Answer detected."),
+    answerText,
     feedback: asString(item.feedback ?? item.aiFeedback) || undefined,
     regions,
   };
@@ -104,7 +119,7 @@ export function normalizeAnalysis(value: unknown, mode: AnalysisResult["mode"], 
   const rawUnmatched = Array.isArray(result.unmatchedAnswers) ? result.unmatchedAnswers : [];
   const unmatchedAnswers = rawUnmatched.map(normalizeUnmatched);
   const pages = Math.max(1, Math.round(asNumber(result.pages ?? result.pageCount, 1)));
-  const matchedAnswers = Math.max(0, Math.round(asNumber(result.matchedAnswers, questions.filter((question) => question.regions.length > 0).length)));
+  const matchedAnswers = questions.filter((question) => question.regions.length > 0).length;
   const rawConfidence = asNumber(result.confidence, 82);
   const confidencePercent = rawConfidence >= 0 && rawConfidence <= 1 ? rawConfidence * 100 : rawConfidence;
   const confidence = Math.round(Math.max(0, Math.min(100, confidencePercent)));
