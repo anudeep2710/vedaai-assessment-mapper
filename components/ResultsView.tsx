@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronDown, ChevronLeft, ChevronRight, Maximize2, Minus, Plus, RotateCcw, Sparkles } from "lucide-react";
+import { PdfPagePreview } from "./PdfPagePreview";
 import type { AnalysisResult, AssessmentQuestion, UploadedFiles } from "@/lib/types";
 
 type ResultsViewProps = {
@@ -15,30 +16,6 @@ type ResultsViewProps = {
   zoom: number;
   onZoomChange: (zoom: number) => void;
   onReset: () => void;
-};
-
-const PAGE_COPY: Record<number, Array<{ label: string; text: string; top: number; wide?: boolean; diagram?: boolean }>> = {
-  1: [
-    { label: "Q1.", text: "Arteries carry blood away from the heart.", top: 8 },
-    { label: "Q2.", text: "The process mainly occurs in the chloroplast of the plant cell.", top: 29, wide: true },
-    { label: "Q3.", text: "Chloroplasts contain chlorophyll. Light reaction captures energy; dark reaction uses it to make glucose.", top: 51, wide: true },
-  ],
-  2: [
-    { label: "Q5.", text: "Alveolar sac · capillary · oxygen and carbon dioxide exchange", top: 10, diagram: true },
-    { label: "Q6.", text: "Digestive system — stomach, small intestine, liver and pancreas", top: 44, diagram: true },
-  ],
-  3: [
-    { label: "Q7.", text: "Nephron: Bowman's capsule → tubule → collecting duct", top: 11, diagram: true },
-    { label: "Q8.", text: "Palisade cells are tightly packed; spongy cells leave air spaces for gas exchange.", top: 45, wide: true },
-    { label: "Q9.", text: "Transpiration is the loss of water vapour through stomata. Wind and heat increase the rate.", top: 70, wide: true },
-  ],
-  4: [
-    { label: "Q10.", text: "Xylem vessels have lignified walls and form a continuous hollow tube for water transport.", top: 9, wide: true },
-    { label: "Q11a.", text: "Plant A: broad green leaves · Plant B: pale elongated leaves", top: 31, diagram: true },
-    { label: "Q11b.", text: "Move Plant B to brighter indirect light.", top: 53 },
-    { label: "Q12.", text: "Minute ventilation = 0.5 × 12 = 6 L/min", top: 68, wide: true },
-    { label: "Q13.", text: "(0.5 − 0.15) × 12 = 4.2 L/min", top: 85, wide: true },
-  ],
 };
 
 function ScorePill({ question }: { question: AssessmentQuestion }) {
@@ -78,86 +55,74 @@ function QuestionCard({
   );
 }
 
-function MiniDiagram({ kind }: { kind?: string }) {
-  return (
-    <span className={`mini-diagram ${kind === "alveolus" ? "is-alveolus" : ""}`} aria-hidden="true">
-      <span className="diagram-circle" />
-      <span className="diagram-line line-a" />
-      <span className="diagram-line line-b" />
-      <span className="diagram-label label-a">O₂</span>
-      <span className="diagram-label label-b">CO₂</span>
-    </span>
-  );
-}
-
-function PaperContent({ page }: { page: number }) {
-  return (
-    <div className="paper-content" aria-hidden="true">
-      {(PAGE_COPY[page] || []).map((entry) => (
-        <div className={`paper-entry${entry.wide ? " is-wide" : ""}`} style={{ top: `${entry.top}%` }} key={`${page}-${entry.label}`}>
-          <span className="paper-entry-label">{entry.label}</span>
-          {entry.diagram ? <MiniDiagram /> : <span>{entry.text}</span>}
-          {entry.diagram && <span className="paper-entry-caption">{entry.text}</span>}
-        </div>
-      ))}
-      <div className="paper-signature">student answer sheet</div>
-    </div>
-  );
-}
-
 function AnswerPaper({
   page,
   zoom,
   analysis,
   selectedId,
+  answerFile,
   previewUrl,
-  previewIsImage,
+  pageCount,
+  onPdfDocumentLoad,
 }: {
   page: number;
   zoom: number;
   analysis: AnalysisResult;
   selectedId: string;
+  answerFile: File | null;
   previewUrl: string | null;
-  previewIsImage: boolean;
+  pageCount: number;
+  onPdfDocumentLoad: (pages: number) => void;
 }) {
-  const regionItems = useMemo(() => {
-    return analysis.questions.flatMap((question) => question.regions.map((region, index) => ({ question, region, index })));
-  }, [analysis.questions]);
+  const [pageAspectRatio, setPageAspectRatio] = useState(0.707);
   const selected = analysis.questions.find((question) => question.id === selectedId);
   const selectedPageRegions = selected?.regions.filter((region) => region.page === page) || [];
   const unmatched = analysis.unmatchedAnswers.filter((answer) => answer.page === page);
+  const isPdf = Boolean(answerFile && (answerFile.type === "application/pdf" || answerFile.name.toLowerCase().endsWith(".pdf")));
+  const isImage = Boolean(answerFile?.type.startsWith("image/") && previewUrl);
+
+  const handlePageAspectRatio = useCallback((ratio: number) => {
+    if (Number.isFinite(ratio) && ratio > 0) setPageAspectRatio(ratio);
+  }, []);
 
   return (
     <div className="paper-scale-frame">
-      <div className={`answer-paper${previewIsImage ? " is-image-preview" : ""}`} style={{ transform: `scale(${zoom / 100})` }}>
-        {previewUrl && previewIsImage ? (
-          <Image className="uploaded-answer-preview" src={previewUrl} alt="Uploaded handwritten answer sheet" fill unoptimized sizes="(max-width: 760px) 100vw, 50vw" />
-        ) : (
-          <>
-            <div className="paper-grid" />
-            <div className="paper-margin" />
-            <PaperContent page={page} />
-          </>
-        )}
+      <div
+        className="answer-paper is-document-preview"
+        style={{ transform: `scale(${zoom / 100})`, aspectRatio: `${pageAspectRatio}` }}
+      >
+        {isPdf && answerFile ? (
+          <PdfPagePreview
+            file={answerFile}
+            page={page}
+            onDocumentLoad={onPdfDocumentLoad}
+            onPageAspectRatio={handlePageAspectRatio}
+          />
+        ) : null}
 
-        {!previewIsImage && regionItems.filter(({ region }) => region.page === page).map(({ question, region, index }) => {
-          const isSelected = question.id === selectedId;
-          return (
-            <div
-              className={`answer-region ${isSelected ? "is-selected" : "is-muted"}`}
-              key={`${question.id}-${index}`}
-              style={{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%` }}
-              title={`${question.number} · ${Math.round((region.confidence || 0) * 100)}% confidence`}
-            >
-              {isSelected && <span className="region-label">Q{question.number}</span>}
-            </div>
-          );
-        })}
+        {isImage && previewUrl ? (
+          <Image
+            className="uploaded-answer-preview"
+            src={previewUrl}
+            alt="Uploaded handwritten answer sheet"
+            fill
+            unoptimized
+            sizes="(max-width: 760px) 100vw, 50vw"
+            onLoad={(event) => handlePageAspectRatio(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight)}
+          />
+        ) : null}
 
-        {previewIsImage && selectedPageRegions.map((region, index) => (
+        {!isPdf && !isImage ? (
+          <div className="document-page-status is-error" role="alert">
+            <strong>Answer sheet preview unavailable</strong>
+            <span>Upload a PDF, PNG, JPG, or WebP answer sheet.</span>
+          </div>
+        ) : null}
+
+        {selectedPageRegions.map((region, index) => (
           <div
             className="answer-region is-selected"
-            key={`selected-image-region-${index}`}
+            key={`selected-region-${index}`}
             style={{ left: `${region.x}%`, top: `${region.y}%`, width: `${region.width}%`, height: `${region.height}%` }}
           >
             <span className="region-label">Q{selected?.number}</span>
@@ -169,7 +134,7 @@ function AnswerPaper({
             <span className="region-label">?</span>
           </div>
         ))}
-        <span className="paper-page-number">{page} / {analysis.pages}</span>
+        <span className="paper-page-number">{page} / {pageCount}</span>
       </div>
     </div>
   );
@@ -199,22 +164,38 @@ export function ResultsView({
   onZoomChange,
   onReset,
 }: ResultsViewProps) {
+  const answerIsPdf = Boolean(files.answerSheet && (files.answerSheet.type === "application/pdf" || files.answerSheet.name.toLowerCase().endsWith(".pdf")));
   const [showAllFeedback, setShowAllFeedback] = useState(false);
   const [mobileTab, setMobileTab] = useState<"questions" | "answer">("questions");
+  const [documentPageCount, setDocumentPageCount] = useState(() => answerIsPdf ? Math.max(1, analysis.pages) : 1);
+  const answerViewerRef = useRef<HTMLDivElement>(null);
   const previewUrl = useMemo(() => {
     const file = files.answerSheet;
     if (!file || !file.type.startsWith("image/")) return null;
     return URL.createObjectURL(file);
   }, [files.answerSheet]);
-  const previewIsImage = Boolean(files.answerSheet?.type.startsWith("image/") && previewUrl);
 
   useEffect(() => {
     if (!previewUrl) return;
     return () => URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
+  const handlePdfDocumentLoad = useCallback((pages: number) => {
+    setDocumentPageCount(Math.max(1, pages));
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await answerViewerRef.current?.requestFullscreen();
+    } catch {
+      // Fullscreen can be denied by browser policy; the viewer remains usable.
+    }
+  };
+
   const selectedQuestion = analysis.questions.find((question) => question.id === selectedId);
-  const answerPageLabel = analysis.pages > 1 ? `Page ${answerPage} of ${analysis.pages}` : "Page 1 of 1";
+  const visibleAnswerPage = Math.max(1, Math.min(answerPage, documentPageCount));
+  const answerPageLabel = documentPageCount > 1 ? `Page ${visibleAnswerPage} of ${documentPageCount}` : "Page 1 of 1";
 
   return (
     <section className="results-view" aria-label="Question and answer mapping review">
@@ -293,10 +274,10 @@ export function ResultsView({
               <span>{zoom}%</span>
               <button type="button" onClick={() => onZoomChange(Math.min(130, zoom + 10))} aria-label="Zoom in"><Plus size={13} /></button>
             </div>
-            <button type="button" className="page-control" onClick={() => onPageChange(Math.max(1, answerPage - 1))} disabled={answerPage === 1} aria-label="Previous page"><ChevronLeft size={13} /></button>
+            <button type="button" className="page-control" onClick={() => onPageChange(Math.max(1, visibleAnswerPage - 1))} disabled={visibleAnswerPage === 1} aria-label="Previous page"><ChevronLeft size={13} /></button>
             <span className="page-label">{answerPageLabel}</span>
-            <button type="button" className="page-control" onClick={() => onPageChange(Math.min(analysis.pages, answerPage + 1))} disabled={answerPage === analysis.pages} aria-label="Next page"><ChevronRight size={13} /></button>
-            <button type="button" className="fullscreen-control" aria-label="Fit answer sheet"><Maximize2 size={13} /></button>
+            <button type="button" className="page-control" onClick={() => onPageChange(Math.min(documentPageCount, visibleAnswerPage + 1))} disabled={visibleAnswerPage === documentPageCount} aria-label="Next page"><ChevronRight size={13} /></button>
+            <button type="button" className="fullscreen-control" onClick={toggleFullscreen} aria-label="Toggle answer sheet fullscreen"><Maximize2 size={13} /></button>
           </div>
         </div>
         <div className="answer-focus-line">
@@ -304,8 +285,17 @@ export function ResultsView({
           <span>{selectedQuestion ? `Showing answer ${selectedQuestion.number}` : "Select a question to locate its answer"}</span>
           {selectedQuestion?.regions.length ? <span className="focus-confidence">{Math.round((selectedQuestion.regions[0].confidence || 0) * 100)}% region confidence</span> : null}
         </div>
-        <div className="answer-viewer">
-          <AnswerPaper page={answerPage} zoom={zoom} analysis={analysis} selectedId={selectedId} previewUrl={previewUrl} previewIsImage={previewIsImage} />
+        <div className="answer-viewer" ref={answerViewerRef}>
+          <AnswerPaper
+            page={visibleAnswerPage}
+            zoom={zoom}
+            analysis={analysis}
+            selectedId={selectedId}
+            answerFile={files.answerSheet}
+            previewUrl={previewUrl}
+            pageCount={documentPageCount}
+            onPdfDocumentLoad={handlePdfDocumentLoad}
+          />
         </div>
         <div className="answer-panel-footer">
           <span><span className="legend-dot is-mapped" /> Selected answer region</span>

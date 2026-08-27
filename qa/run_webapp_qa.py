@@ -105,6 +105,11 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
             page.get_by_role("heading", name="Extracted Questions").wait_for(timeout=20000)
             require(page.get_by_role("heading", name="Answer Sheet").is_visible(), "Answer Sheet panel is missing")
             require(page.locator(".question-card").count() >= 10, "Review did not render the expected question list")
+            page.locator(".pdf-page-canvas.is-ready").wait_for(timeout=15000)
+            canvas_size = page.locator(".pdf-page-canvas").evaluate("canvas => ({ width: canvas.width, height: canvas.height })")
+            require(canvas_size["width"] > 0 and canvas_size["height"] > 0, "Uploaded PDF page did not render into the viewer")
+            require(page.locator(".paper-content").count() == 0, "Legacy sample answer sheet is still present")
+            checks["uploaded_pdf_preview"] = True
             require(page.locator(".answer-region").count() >= 1, "No answer regions rendered")
             checks["results_workspace"] = True
 
@@ -123,7 +128,9 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
             page.get_by_role("button", name="Next page").click()
             require("Page 2 of" in page.locator(".page-label").inner_text(), "Next page did not change the answer page")
             page.get_by_role("button", name="Previous page").click()
+            page.locator(".pdf-page-canvas.is-ready").wait_for(timeout=15000)
             checks["viewer_controls"] = True
+            page.screenshot(path=str(output_dir / f"{case_index:02d}-{label}-results-desktop.png"), full_page=True)
 
             page.set_viewport_size({"width": 390, "height": 844})
             page.wait_for_timeout(250)

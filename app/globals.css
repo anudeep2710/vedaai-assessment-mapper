@@ -1192,6 +1192,16 @@ button:focus-visible {
   scrollbar-width: thin;
 }
 
+.answer-viewer:fullscreen {
+  align-items: flex-start;
+  padding: 24px;
+  background: #302f2e;
+}
+
+.answer-viewer:fullscreen .paper-scale-frame {
+  width: min(90vw, 820px);
+}
+
 .paper-scale-frame {
   width: min(100%, 590px);
   flex: 0 0 auto;
@@ -1210,115 +1220,72 @@ button:focus-visible {
   box-shadow: 0 7px 19px rgba(67, 60, 51, 0.17);
 }
 
-.answer-paper.is-image-preview {
+.answer-paper.is-document-preview {
   background: #fff;
 }
 
-.uploaded-answer-preview {
+.uploaded-answer-preview,
+.pdf-page-canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-.paper-grid {
+.pdf-page-canvas {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.pdf-page-canvas.is-ready {
+  opacity: 1;
+}
+
+.document-page-status {
   position: absolute;
   inset: 0;
-  background:
-    repeating-linear-gradient(0deg, transparent 0, transparent 29px, rgba(141, 149, 202, 0.28) 30px, transparent 31px),
-    linear-gradient(90deg, rgba(247, 240, 214, 0.42), rgba(255, 253, 239, 0.9));
-}
-
-.paper-margin {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 9%;
-  width: 1px;
-  background: rgba(229, 116, 112, 0.53);
-}
-
-.paper-content {
-  position: absolute;
-  inset: 0;
-  color: var(--paper-ink);
-  font-family: "Segoe Print", "Comic Sans MS", cursive;
-  font-size: clamp(10px, 1.15vw, 14px);
-  line-height: 1.42;
-}
-
-.paper-entry {
-  position: absolute;
-  right: 8%;
-  left: 13%;
+  z-index: 6;
   display: flex;
-  min-height: 8%;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 7px;
-  transform: rotate(-0.4deg);
+  padding: 24px;
+  background: #fbfaf8;
+  color: var(--ink-soft);
+  text-align: center;
 }
 
-.paper-entry.is-wide {
-  right: 7%;
+.document-page-status strong {
+  font-size: 10px;
 }
 
-.paper-entry-label {
-  flex: 0 0 auto;
-  font-weight: 800;
+.document-page-status span:not(.document-page-spinner) {
+  max-width: 260px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
 }
 
-.paper-entry-caption {
-  align-self: flex-end;
-  margin-left: -31%;
-  transform: translateY(28px);
-  font-size: 0.72em;
-  opacity: 0.83;
+.document-page-status.is-error {
+  background: #fff8f5;
+  color: #774438;
 }
 
-.paper-signature {
-  position: absolute;
-  right: 10%;
-  bottom: 2.5%;
-  color: rgba(41, 77, 145, 0.46);
-  font-size: 0.58em;
-  transform: rotate(-2deg);
-}
-
-.mini-diagram {
-  position: relative;
-  display: inline-block;
-  width: 30%;
-  min-width: 85px;
-  height: 82px;
-  margin-top: -5px;
-  border: 1.5px solid rgba(41, 77, 145, 0.62);
-  border-radius: 50% 50% 45% 48%;
-}
-
-.diagram-circle {
-  position: absolute;
-  inset: 22px 31px 20px;
-  border: 1.5px solid currentColor;
+.document-page-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #f1c6b7;
+  border-top-color: var(--orange);
   border-radius: 50%;
+  animation: document-spin 700ms linear infinite;
 }
 
-.diagram-line {
-  position: absolute;
-  width: 43px;
-  height: 1px;
-  background: currentColor;
+@keyframes document-spin {
+  to { transform: rotate(360deg); }
 }
-
-.line-a { top: 24px; left: -28px; transform: rotate(-22deg); }
-.line-b { right: -28px; bottom: 23px; transform: rotate(18deg); }
-
-.diagram-label {
-  position: absolute;
-  font-size: 0.68em;
-}
-
-.label-a { top: 3px; left: -30px; }
-.label-b { right: -32px; bottom: 4px; }
 
 .answer-region {
   position: absolute;
