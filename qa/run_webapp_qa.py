@@ -55,7 +55,13 @@ def qa_analysis() -> dict[str, object]:
     }
 
 
-def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -> dict[str, object]:
+def run_case(
+    base_url: str,
+    case_dir: Path,
+    output_dir: Path,
+    case_index: int,
+    real_api: bool = False,
+) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
     warnings: list[str] = []
@@ -72,7 +78,8 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
         page.on("requestfailed", lambda request: failures.append(f"{request.method} {request.url}: {request.failure}"))
 
         try:
-            page.route("**/api/analyze", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(qa_analysis())))
+            if not real_api:
+                page.route("**/api/analyze", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(qa_analysis())))
             page.goto(base_url, wait_until="networkidle")
             checks["page_loaded"] = page.locator("#upload-heading").is_visible()
             require(checks["page_loaded"], "Upload heading did not render")
@@ -102,7 +109,8 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
             checks["processing_state"] = processing_visible
             page.screenshot(path=str(output_dir / f"{case_index:02d}-{label}-processing.png"), full_page=True)
 
-            page.get_by_role("heading", name="Extracted Questions").wait_for(timeout=20000)
+            analysis_timeout = 120000 if real_api else 20000
+            page.get_by_role("heading", name="Extracted Questions").wait_for(timeout=analysis_timeout)
             require(page.get_by_role("heading", name="Answer Sheet").is_visible(), "Answer Sheet panel is missing")
             require(page.locator(".question-card").count() >= 10, "Review did not render the expected question list")
             page.locator(".pdf-page-canvas.is-ready").wait_for(timeout=15000)
@@ -125,8 +133,10 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
 
             page.get_by_role("button", name="Zoom in").click()
             require("110%" in page.locator(".zoom-controls").inner_text(), "Zoom in did not update the toolbar")
+            previous_page_label = page.locator(".page-label").inner_text()
             page.get_by_role("button", name="Next page").click()
-            require("Page 2 of" in page.locator(".page-label").inner_text(), "Next page did not change the answer page")
+            next_page_label = page.locator(".page-label").inner_text()
+            require(next_page_label != previous_page_label, "Next page did not change the answer page")
             page.get_by_role("button", name="Previous page").click()
             page.locator(".pdf-page-canvas.is-ready").wait_for(timeout=15000)
             checks["viewer_controls"] = True
@@ -160,6 +170,7 @@ def run_case(base_url: str, case_dir: Path, output_dir: Path, case_index: int) -
     return {
         "case": label,
         "baseUrl": base_url,
+        "analysisMode": "real-api" if real_api else "fixture",
         "checks": checks,
         "passedChecks": sum(1 for value in checks.values() if value),
         "failedChecks": [key for key, value in checks.items() if not value],
@@ -174,9 +185,13 @@ def main() -> None:
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--case-dir", type=Path, action="append", required=True)
+    parser.add_argument("--real-api", action="store_true", help="Call the deployed analysis API instead of using the deterministic QA fixture")
     args = parser.parse_args()
 
-    results = [run_case(args.base_url, case_dir, args.output_dir, index) for index, case_dir in enumerate(args.case_dir, start=1)]
+    results = [
+        run_case(args.base_url, case_dir, args.output_dir, index, real_api=args.real_api)
+        for index, case_dir in enumerate(args.case_dir, start=1)
+    ]
     report_path = args.output_dir / "qa-report.json"
     report_path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(results, indent=2))
