@@ -46,7 +46,7 @@ async function callGemini(questionPaper: File, answerSheet: File) {
   if (!key) return null;
 
   const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
   const response = await fetch(url, {
     method: "POST",
@@ -64,7 +64,7 @@ async function callGemini(questionPaper: File, answerSheet: File) {
           ],
         },
       ],
-      generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
+      generationConfig: { responseMimeType: "application/json" },
     }),
   });
 
@@ -81,7 +81,7 @@ async function callGroq(questionPaper: File, answerSheet: File) {
   if (!key || !isImageInput) return null;
 
   const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
-  const model = process.env.GROQ_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+  const model = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
@@ -123,6 +123,25 @@ export async function POST(request: Request) {
 
     if (questionPaper.size > 15_000_000 || answerSheet.size > 15_000_000) {
       return NextResponse.json({ error: "Each file must be 15 MB or smaller. Compress the files and retry." }, { status: 413 });
+    }
+
+    const geminiConfigured = Boolean(process.env.GEMINI_API_KEY);
+    const groqConfiguredForFiles = Boolean(
+      process.env.GROQ_API_KEY
+      && questionPaper.type.startsWith("image/")
+      && answerSheet.type.startsWith("image/"),
+    );
+
+    if (!geminiConfigured && !groqConfiguredForFiles) {
+      const usesPdf = questionPaper.type === "application/pdf" || answerSheet.type === "application/pdf";
+      return NextResponse.json(
+        {
+          error: usesPdf
+            ? "PDF extraction is not configured. Add GEMINI_API_KEY to the server and retry."
+            : "AI extraction is not configured. Add GEMINI_API_KEY or GROQ_API_KEY to the server and retry.",
+        },
+        { status: 503 },
+      );
     }
 
     try {
