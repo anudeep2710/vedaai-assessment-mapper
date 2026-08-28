@@ -114,7 +114,8 @@ async function callGemini(questionPaper: File, answerSheet: File) {
       const retryable = [408, 429, 500, 502, 503, 504].includes(response.status);
       if (attempt === 0 && retryable) {
         await response.text();
-        await new Promise((resolve) => setTimeout(resolve, 750));
+        const retryDelay = [500, 502, 503, 504].includes(response.status) ? 2_500 : 750;
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
         continue;
       }
       throw new Error(`Gemini request failed with status ${response.status}.`);
