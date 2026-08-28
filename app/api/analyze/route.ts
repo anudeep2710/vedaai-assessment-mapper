@@ -160,7 +160,18 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
     }),
   });
 
-  if (!response.ok) throw new Error(`Groq request failed with status ${response.status}.`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    let providerMessage = "";
+    try {
+      const errorPayload = JSON.parse(errorText) as { error?: { message?: string; code?: string } };
+      providerMessage = [errorPayload.error?.code, errorPayload.error?.message].filter(Boolean).join(": ");
+    } catch {
+      providerMessage = errorText;
+    }
+    const safeMessage = providerMessage.replace(/[\r\n]+/g, " ").slice(0, 500);
+    throw new Error(`Groq request failed with status ${response.status}${safeMessage ? `: ${safeMessage}` : "."}`);
+  }
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const rawText = data.choices?.[0]?.message?.content || "";
   if (!rawText) throw new Error("Groq returned an empty response.");
