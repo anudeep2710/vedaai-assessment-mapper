@@ -174,28 +174,20 @@ export async function buildGroqContactSheets(questionPaper: File, answerSheet: F
     ]);
     if (questionPages.length + answerPages.length > MAX_TOTAL_PAGES) return null;
 
-    const answerGroupCount = Math.min(3, answerPages.length);
-    const baseGroupSize = Math.floor(answerPages.length / answerGroupCount);
-    const largerGroupCount = answerPages.length % answerGroupCount;
-    const answerGroups: RasterPage[][] = [];
-    let answerPageOffset = 0;
-    for (let index = 0; index < answerGroupCount; index += 1) {
-      const groupSize = baseGroupSize + (index < largerGroupCount ? 1 : 0);
-      answerGroups.push(answerPages.slice(answerPageOffset, answerPageOffset + groupSize));
-      answerPageOffset += groupSize;
-    }
+    const answerSplit = Math.ceil(answerPages.length / 2);
+    const firstAnswerPages = answerPages.slice(0, answerSplit);
+    const secondAnswerPages = answerPages.slice(answerSplit);
     const encode = async (quality: number) => Promise.all([
       encodeContactSheet(questionPages, "assessment-groq-questions.jpg", 3, quality),
-      ...answerGroups.map((pages, index) => (
-        encodeContactSheet(pages, `assessment-groq-answers-${index + 1}.jpg`, 2, quality)
-      )),
+      encodeContactSheet(firstAnswerPages, "assessment-groq-answers-1.jpg", 2, quality),
+      encodeContactSheet(secondAnswerPages, "assessment-groq-answers-2.jpg", 2, quality),
     ]);
 
     let files = (await encode(0.84)).filter((file): file is File => Boolean(file));
     if (files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
       files = (await encode(0.68)).filter((file): file is File => Boolean(file));
     }
-    const expectedFileCount = 1 + answerGroups.length;
+    const expectedFileCount = secondAnswerPages.length > 0 ? 3 : 2;
     if (files.length !== expectedFileCount || files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
       return null;
     }
