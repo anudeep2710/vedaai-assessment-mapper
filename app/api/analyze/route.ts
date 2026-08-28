@@ -53,10 +53,9 @@ Rules:
 const GROQ_ANSWER_PROMPT = `Inspect only this handwritten ANSWER SHEET image and map it to the authoritative printed list below.
 The answers are deliberately out of order. Match by meaning and handwritten labels, but return each authoritative number exactly.
 Return JSON only:
-{"pages":4,"confidence":0.9,"answers":[{"number":"exact authoritative number","marks":2,"status":"correct | partial | incorrect | unanswered","regions":[{"page":1,"bbox":[x,y,width,height],"confidence":0.9}]}],"unmatchedAnswers":[]}
+{"pages":4,"confidence":0.9,"answers":[{"number":"exact authoritative number","marks":2,"status":"correct | partial | incorrect","regions":[{"page":1,"bbox":[x,y,width,height],"confidence":0.9}]}],"unmatchedAnswers":[]}
 Rules:
-- Include one answer object for every authoritative number, in authoritative order.
-- Unanswered means marks 0 and regions []. Incorrect writing keeps its regions.
+- Include only authoritative numbers with detected writing. Omit unanswered numbers entirely. Incorrect writing keeps its regions.
 - Green headers give answer page numbers.
 - A bbox is a normalized 0-100 percentage rectangle relative to the individual white answer page, excluding its green header and grey background.
 - Use the smallest complete answer rectangle and multiple regions for multi-page answers.
@@ -178,7 +177,7 @@ async function callGroqJson(
           : Number.isFinite(messageSeconds) && messageSeconds > 0
             ? messageSeconds
             : 2;
-        await new Promise((resolve) => setTimeout(resolve, Math.min(35_000, Math.ceil(retrySeconds * 1_000) + 250)));
+        await new Promise((resolve) => setTimeout(resolve, Math.min(55_000, Math.ceil(retrySeconds * 1_000) + 250)));
         continue;
       }
       const safeMessage = providerMessage.replace(/[\r\n]+/g, " ").slice(0, 500);
@@ -256,7 +255,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
 
   const authoritativeList = JSON.stringify(printedQuestions.map(({ number, text, maxMarks }) => ({
     number,
-    text,
+    text: text.split(/\s+/).slice(0, 12).join(" "),
     maxMarks,
   })));
   const answerResult = asRecord(await callGroqJson(
@@ -268,7 +267,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
         image_url: { url: `data:${answerSource.type};base64,${asBase64(answerBuffers[index])}` },
       })),
     ],
-    1_200,
+    850,
   ));
   const rawAnswers = Array.isArray(answerResult.answers)
     ? answerResult.answers
@@ -324,7 +323,7 @@ export async function POST(request: Request) {
     const preferGroq = formData.get("preferGroq") === "true";
     const contactSheetBytes = contactSheets.reduce((total, file) => total + file.size, 0);
     const validContactSheets = contactSheets.length >= 2
-      && contactSheets.length <= 3
+      && contactSheets.length <= 4
       && contactSheets.length === contactEntries.length
       && contactSheets.every((file) => isImage(file))
       && contactSheetBytes <= MAX_CONTACT_SHEET_BYTES;
