@@ -138,42 +138,59 @@ async function callGroqJson(
   maxCompletionTokens: number,
 ): Promise<unknown> {
   const model = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      temperature: 0.5,
-      top_p: 0.8,
-      reasoning_effort: "none",
-      reasoning_format: "hidden",
-      max_completion_tokens: maxCompletionTokens,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "user",
-          content,
-        },
-      ],
-    }),
+  const requestBody = JSON.stringify({
+    model,
+    temperature: 0.5,
+    top_p: 0.8,
+    reasoning_effort: "none",
+    reasoning_format: "hidden",
+    max_completion_tokens: maxCompletionTokens,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "user",
+        content,
+      },
+    ],
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    let providerMessage = "";
-    try {
-      const errorPayload = JSON.parse(errorText) as { error?: { message?: string; code?: string } };
-      providerMessage = [errorPayload.error?.code, errorPayload.error?.message].filter(Boolean).join(": ");
-    } catch {
-      providerMessage = errorText;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: requestBody,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let providerMessage = "";
+      try {
+        const errorPayload = JSON.parse(errorText) as { error?: { message?: string; code?: string } };
+        providerMessage = [errorPayload.error?.code, errorPayload.error?.message].filter(Boolean).join(": ");
+      } catch {
+        providerMessage = errorText;
+      }
+      if (response.status === 429 && attempt === 0) {
+        const headerSeconds = Number(response.headers.get("retry-after"));
+        const messageSeconds = Number(providerMessage.match(/try again in ([\d.]+)s/i)?.[1]);
+        const retrySeconds = Number.isFinite(headerSeconds) && headerSeconds > 0
+          ? headerSeconds
+          : Number.isFinite(messageSeconds) && messageSeconds > 0
+            ? messageSeconds
+            : 2;
+        await new Promise((resolve) => setTimeout(resolve, Math.min(15_000, Math.ceil(retrySeconds * 1_000) + 250)));
+        continue;
+      }
+      const safeMessage = providerMessage.replace(/[\r\n]+/g, " ").slice(0, 500);
+      throw new Error(`Groq request failed with status ${response.status}${safeMessage ? `: ${safeMessage}` : "."}`);
     }
-    const safeMessage = providerMessage.replace(/[\r\n]+/g, " ").slice(0, 500);
-    throw new Error(`Groq request failed with status ${response.status}${safeMessage ? `: ${safeMessage}` : "."}`);
+    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const rawText = data.choices?.[0]?.message?.content || "";
+    if (!rawText) throw new Error("Groq returned an empty response.");
+    return extractJsonObject(rawText);
   }
-  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const rawText = data.choices?.[0]?.message?.content || "";
-  if (!rawText) throw new Error("Groq returned an empty response.");
-  return extractJsonObject(rawText);
+
+  throw new Error("Groq extraction failed after retrying.");
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
