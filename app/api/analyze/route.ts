@@ -51,12 +51,13 @@ Rules:
 - Orange tile headers identify question-paper page order. Return no commentary.`;
 
 const GROQ_ANSWER_PROMPT = `Inspect only this handwritten ANSWER SHEET image and map it to the authoritative printed list below.
-The answers are deliberately out of order. Match by meaning and handwritten labels, but return each authoritative number exactly.
+The answers are deliberately out of order. Match by meaning and handwritten labels, but return each authoritative number exactly. This image is a contact sheet containing only a subset of the answer-sheet pages.
 Return JSON only:
-{"pages":4,"confidence":0.9,"answers":[{"number":"exact authoritative number","marks":2,"status":"correct | partial | incorrect | unanswered","regions":[{"page":1,"bbox":[x,y,width,height],"confidence":0.9}]}],"unmatchedAnswers":[]}
+{"pages":4,"confidence":0.9,"answers":[{"number":"exact authoritative number","marks":2,"status":"correct | partial | incorrect","regions":[{"page":1,"bbox":[x,y,width,height],"confidence":0.9}]}],"unmatchedAnswers":[]}
 Rules:
-- Include one answer object for every authoritative number, in authoritative order.
-- Unanswered means marks 0 and regions []. Incorrect writing keeps its regions.
+- Include an answer object only for an authoritative number that has visible student writing in this image. Omit unanswered questions instead of inventing regions.
+- If writing explicitly says skipped/no answer, omit it unless it is useful to identify an unmatched answer.
+- Incorrect writing keeps its regions; do not turn visible writing into unanswered.
 - Green headers give answer page numbers.
 - A bbox is a normalized 0-100 percentage rectangle relative to the individual white answer page, excluding its green header and grey background.
 - Use the smallest complete answer rectangle and multiple regions for multi-page answers.
@@ -259,27 +260,53 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
     text,
     maxMarks,
   })));
-  const answerResult = asRecord(await callGroqJson(
-    key,
-    [
-      { type: "text", text: `${GROQ_ANSWER_PROMPT}\n${authoritativeList}` },
-      ...answerSources.map((answerSource, index) => ({
-        type: "image_url",
-        image_url: { url: `data:${answerSource.type};base64,${asBase64(answerBuffers[index])}` },
-      })),
-    ],
-    1_200,
-  ));
-  const rawAnswers = Array.isArray(answerResult.answers)
-    ? answerResult.answers
-    : Array.isArray(answerResult.questions)
-      ? answerResult.questions
-      : [];
+  const answerResults: Record<string, unknown>[] = [];
+  for (let index = 0; index < answerSources.length; index += 1) {
+    const answerResult = asRecord(await callGroqJson(
+      key,
+      [
+        { type: "text", text: `${GROQ_ANSWER_PROMPT}\n${authoritativeList}` },
+        {
+          type: "image_url",
+          image_url: { url: `data:${answerSources[index].type};base64,${asBase64(answerBuffers[index])}` },
+        },
+      ],
+      1_200,
+    ));
+    answerResults.push(answerResult);
+  }
+  const rawAnswers = answerResults.flatMap((answerResult) => {
+    if (Array.isArray(answerResult.answers)) return answerResult.answers;
+    if (Array.isArray(answerResult.questions)) return answerResult.questions;
+    return [];
+  });
   const answersByNumber = new Map<string, Record<string, unknown>>();
   rawAnswers.forEach((value) => {
     const answer = asRecord(value);
     const keyValue = numberKey(answer.number ?? answer.label);
-    if (keyValue) answersByNumber.set(keyValue, answer);
+    if (!keyValue) return;
+
+    const existing = answersByNumber.get(keyValue);
+    if (!existing) {
+      answersByNumber.set(keyValue, answer);
+      return;
+    }
+
+    const existingRegions = Array.isArray(existing.regions) ? existing.regions : [];
+    const nextRegions = Array.isArray(answer.regions) ? answer.regions : [];
+    const mergedRegions = [...existingRegions, ...nextRegions];
+    const existingStatus = asString(existing.status).toLowerCase();
+    const nextStatus = asString(answer.status).toLowerCase();
+    const status = mergedRegions.length > 0
+      ? nextStatus !== "unanswered" && nextStatus ? nextStatus : existingStatus
+      : nextStatus || existingStatus;
+    answersByNumber.set(keyValue, {
+      ...existing,
+      ...answer,
+      status,
+      marks: Math.max(asNumber(existing.marks, 0), asNumber(answer.marks, 0)),
+      regions: mergedRegions,
+    });
   });
 
   const questions = printedQuestions.map((question) => {
@@ -302,10 +329,14 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
 
   return normalizeAnalysis(
     {
-      pages: answerResult.pages,
-      confidence: answerResult.confidence,
+      pages: Math.max(1, ...answerResults.map((answerResult) => asNumber(answerResult.pages ?? answerResult.pageCount, 1))),
+      confidence: answerResults.length > 0
+        ? answerResults.reduce((total, answerResult) => total + asNumber(answerResult.confidence, 0.8), 0) / answerResults.length
+        : 0.8,
       questions,
-      unmatchedAnswers: Array.isArray(answerResult.unmatchedAnswers) ? answerResult.unmatchedAnswers : [],
+      unmatchedAnswers: answerResults.flatMap((answerResult) => (
+        Array.isArray(answerResult.unmatchedAnswers) ? answerResult.unmatchedAnswers : []
+      )),
     },
     "groq",
     "Groq vision fallback",
