@@ -40,22 +40,29 @@ Rules:
 - If a mark value cannot be inferred, use the printed maximum and a conservative score.
 `;
 
-const CONTACT_SHEET_PROMPT = `The supplied JPEG is a contact sheet containing both documents.
-- Tiles with orange headers are QUESTION PAPER pages. Tiles with green headers are ANSWER SHEET pages.
-- Read every tile independently and use the page number printed in each tile header.
-- The green answer pages are deliberately out of order. Handwritten labels are matching hints only and must never determine output numbering or order.
-- For regions[].page and unmatchedAnswers[].page, return the ANSWER SHEET page number from the green header.
-- Calculate every bbox relative to the individual white answer-page image inside its tile, excluding the green header and the grey contact-sheet background. Do not calculate bboxes relative to the full contact sheet.
-- Never return a region from an orange QUESTION PAPER tile.`;
+const GROQ_QUESTION_PROMPT = `Inspect only this printed QUESTION PAPER image. Return JSON only:
+{"questions":[{"number":"exact printed label","text":"printed question","maxMarks":3}]}
+Rules:
+- Extract every question in printed page order, exactly once.
+- Treat every labelled part, including nested parts such as 6 (b) (i), as a separate entry.
+- Preserve each exact printed label. Never renumber sequentially.
+- Read maxMarks from the red [n] beside that exact entry.
+- Keep text to at most 24 words without changing its meaning.
+- Orange tile headers identify question-paper page order. Return no commentary.`;
 
-const GROQ_OUTPUT_RULES = `For this fallback response:
-- Return one complete JSON object and no Markdown or commentary.
-- First enumerate every printed label from the orange question pages in order, including nested parts such as 6 (b) (i). Include each exactly once before mapping any answers.
-- Never shift a question's text onto the previous label when an answer is missing.
-- Read maxMarks from the red [n] printed beside that exact question; never use one default mark value for all questions.
-- Preserve each printed question, but keep question text to at most 30 words.
-- Keep answerText to at most 8 words and feedback to at most 8 words per question.
-- Prefer concise values over truncating the response. Close every JSON array and object.`;
+const GROQ_ANSWER_PROMPT = `Inspect only this handwritten ANSWER SHEET image and map it to the authoritative printed list below.
+The answers are deliberately out of order. Match by meaning and handwritten labels, but return each authoritative number exactly.
+Return JSON only:
+{"pages":4,"confidence":0.9,"answers":[{"number":"exact authoritative number","marks":2,"status":"correct | partial | incorrect | unanswered","regions":[{"page":1,"bbox":[x,y,width,height],"confidence":0.9}]}],"unmatchedAnswers":[]}
+Rules:
+- Include one answer object for every authoritative number, in authoritative order.
+- Unanswered means marks 0 and regions []. Incorrect writing keeps its regions.
+- Green headers give answer page numbers.
+- A bbox is a normalized 0-100 percentage rectangle relative to the individual white answer page, excluding its green header and grey background.
+- Use the smallest complete answer rectangle and multiple regions for multi-page answers.
+- Return no question text, transcription, feedback, Markdown or commentary.
+
+AUTHORITATIVE PRINTED LIST:`;
 
 const MAX_CONTACT_SHEET_BYTES = 2_800_000;
 
@@ -125,41 +132,11 @@ function isImage(file: File | null): file is File {
   return Boolean(file?.type.startsWith("image/"));
 }
 
-async function callGroq(questionPaper: File | null, answerSheet: File | null, contactSheets: File[]) {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) return null;
-
-  let content: Array<Record<string, unknown>>;
-  if (contactSheets.length > 0) {
-    const contactBuffers = await Promise.all(contactSheets.map((contactSheet) => contactSheet.arrayBuffer()));
-    content = [
-      { type: "text", text: `${EXTRACTION_PROMPT}\n${CONTACT_SHEET_PROMPT}\n${GROQ_OUTPUT_RULES}` },
-      ...contactSheets.flatMap((contactSheet, index) => [
-        {
-          type: "text",
-          text: index === 0
-            ? "IMAGE 1 — PRINTED QUESTION PAPER. This image alone determines the questions, exact labels, marks and output order."
-            : "IMAGE 2 — HANDWRITTEN ANSWER SHEET. Use this image only to match answers and regions to the printed list from IMAGE 1.",
-        },
-        {
-          type: "image_url",
-          image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffers[index])}` },
-        },
-      ]),
-    ];
-  } else if (isImage(questionPaper) && isImage(answerSheet)) {
-    const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
-    content = [
-      { type: "text", text: `${EXTRACTION_PROMPT}\n${GROQ_OUTPUT_RULES}` },
-      { type: "text", text: "QUESTION PAPER IMAGE:" },
-      { type: "image_url", image_url: { url: `data:${questionPaper.type};base64,${asBase64(questionBuffer)}` } },
-      { type: "text", text: "STUDENT ANSWER SHEET IMAGE:" },
-      { type: "image_url", image_url: { url: `data:${answerSheet.type};base64,${asBase64(answerBuffer)}` } },
-    ];
-  } else {
-    return null;
-  }
-
+async function callGroqJson(
+  key: string,
+  content: Array<Record<string, unknown>>,
+  maxCompletionTokens: number,
+): Promise<unknown> {
   const model = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -170,7 +147,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
       top_p: 0.8,
       reasoning_effort: "none",
       reasoning_format: "hidden",
-      max_completion_tokens: 3_000,
+      max_completion_tokens: maxCompletionTokens,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -196,7 +173,117 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const rawText = data.choices?.[0]?.message?.content || "";
   if (!rawText) throw new Error("Groq returned an empty response.");
-  return normalizeAnalysis(extractJsonObject(rawText), "groq", "Groq vision fallback");
+  return extractJsonObject(rawText);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function numberKey(value: unknown): string {
+  return asString(value)
+    .toLowerCase()
+    .replace(/^question\s*/i, "")
+    .replace(/^q\s*/i, "")
+    .replace(/[^0-9a-z]/g, "");
+}
+
+async function callGroq(questionPaper: File | null, answerSheet: File | null, contactSheets: File[]) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return null;
+
+  const questionSource = contactSheets[0] || (isImage(questionPaper) ? questionPaper : null);
+  const answerSource = contactSheets[1] || (isImage(answerSheet) ? answerSheet : null);
+  if (!isImage(questionSource) || !isImage(answerSource)) return null;
+
+  const [questionBuffer, answerBuffer] = await Promise.all([
+    questionSource.arrayBuffer(),
+    answerSource.arrayBuffer(),
+  ]);
+  const questionResult = asRecord(await callGroqJson(
+    key,
+    [
+      { type: "text", text: GROQ_QUESTION_PROMPT },
+      { type: "image_url", image_url: { url: `data:${questionSource.type};base64,${asBase64(questionBuffer)}` } },
+    ],
+    1_200,
+  ));
+  const rawPrintedQuestions = Array.isArray(questionResult.questions) ? questionResult.questions : [];
+  const printedQuestions = rawPrintedQuestions
+    .map((value, index) => {
+      const item = asRecord(value);
+      return {
+        id: `q-${index + 1}`,
+        number: asString(item.number ?? item.label),
+        text: asString(item.text ?? item.question),
+        maxMarks: Math.max(1, Math.round(asNumber(item.maxMarks ?? item.marksAvailable, 2))),
+      };
+    })
+    .filter((question) => question.number && question.text);
+  if (printedQuestions.length === 0) throw new Error("Groq did not extract printed questions.");
+
+  const authoritativeList = JSON.stringify(printedQuestions.map(({ number, text, maxMarks }) => ({
+    number,
+    text,
+    maxMarks,
+  })));
+  const answerResult = asRecord(await callGroqJson(
+    key,
+    [
+      { type: "text", text: `${GROQ_ANSWER_PROMPT}\n${authoritativeList}` },
+      { type: "image_url", image_url: { url: `data:${answerSource.type};base64,${asBase64(answerBuffer)}` } },
+    ],
+    1_200,
+  ));
+  const rawAnswers = Array.isArray(answerResult.answers)
+    ? answerResult.answers
+    : Array.isArray(answerResult.questions)
+      ? answerResult.questions
+      : [];
+  const answersByNumber = new Map<string, Record<string, unknown>>();
+  rawAnswers.forEach((value) => {
+    const answer = asRecord(value);
+    const keyValue = numberKey(answer.number ?? answer.label);
+    if (keyValue) answersByNumber.set(keyValue, answer);
+  });
+
+  const questions = printedQuestions.map((question) => {
+    const answer = answersByNumber.get(numberKey(question.number));
+    const suppliedStatus = asString(answer?.status).toLowerCase();
+    const status = ["correct", "partial", "incorrect", "unanswered"].includes(suppliedStatus)
+      ? suppliedStatus
+      : answer && Array.isArray(answer.regions) && answer.regions.length > 0
+        ? "partial"
+        : "unanswered";
+    return {
+      ...question,
+      marks: status === "unanswered" ? 0 : asNumber(answer?.marks, 0),
+      status,
+      answerText: status === "unanswered" ? "No answer detected." : "Answer detected by Groq.",
+      feedback: status === "unanswered" ? "No answer detected." : "Verify the mapped response and score.",
+      regions: status === "unanswered" || !Array.isArray(answer?.regions) ? [] : answer.regions,
+    };
+  });
+
+  return normalizeAnalysis(
+    {
+      pages: answerResult.pages,
+      confidence: answerResult.confidence,
+      questions,
+      unmatchedAnswers: Array.isArray(answerResult.unmatchedAnswers) ? answerResult.unmatchedAnswers : [],
+    },
+    "groq",
+    "Groq vision fallback",
+  );
 }
 
 export async function POST(request: Request) {
@@ -210,8 +297,7 @@ export async function POST(request: Request) {
     const contactSheets = contactEntries.filter((entry): entry is File => entry instanceof File);
     const preferGroq = formData.get("preferGroq") === "true";
     const contactSheetBytes = contactSheets.reduce((total, file) => total + file.size, 0);
-    const validContactSheets = contactSheets.length > 0
-      && contactSheets.length <= 2
+    const validContactSheets = contactSheets.length === 2
       && contactSheets.length === contactEntries.length
       && contactSheets.every((file) => isImage(file))
       && contactSheetBytes <= MAX_CONTACT_SHEET_BYTES;
