@@ -15,7 +15,8 @@ from typing import Any
 
 def canonical_label(value: object) -> str:
     compact = re.sub(r"\s+", "", str(value)).lower()
-    return re.sub(r"^q(?=\d)", "", compact)
+    compact = re.sub(r"^q(?=\d)", "", compact)
+    return re.sub(r"[.:]+$", "", compact)
 
 
 def percent_box(raw_box: dict[str, Any]) -> tuple[float, float, float, float]:
