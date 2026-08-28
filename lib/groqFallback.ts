@@ -79,49 +79,69 @@ function canvasBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   });
 }
 
-export async function buildGroqContactSheet(questionPaper: File, answerSheet: File): Promise<File | null> {
+async function encodeContactSheet(
+  pages: RasterPage[],
+  fileName: string,
+  maximumColumns: number,
+  quality: number,
+): Promise<File | null> {
+  if (pages.length === 0) return null;
+
+  const columns = Math.min(maximumColumns, pages.length);
+  const rows = Math.ceil(pages.length / columns);
+  const cellWidth = PAGE_WIDTH + PAGE_PADDING * 2;
+  const maxPageHeight = Math.max(...pages.map((page) => page.canvas.height));
+  const cellHeight = LABEL_HEIGHT + maxPageHeight + PAGE_PADDING;
+  const contactSheet = document.createElement("canvas");
+  contactSheet.width = columns * cellWidth + (columns + 1) * PAGE_GAP;
+  contactSheet.height = rows * cellHeight + (rows + 1) * PAGE_GAP;
+  const context = contactSheet.getContext("2d");
+  if (!context) return null;
+
+  context.fillStyle = "#d9d6d2";
+  context.fillRect(0, 0, contactSheet.width, contactSheet.height);
+  context.textBaseline = "middle";
+  context.font = "700 22px Arial, sans-serif";
+
+  pages.forEach((page, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = PAGE_GAP + column * (cellWidth + PAGE_GAP);
+    const y = PAGE_GAP + row * (cellHeight + PAGE_GAP);
+    context.fillStyle = "#ffffff";
+    context.fillRect(x, y, cellWidth, cellHeight);
+    context.fillStyle = page.label.startsWith("QUESTION") ? "#ff5623" : "#228b22";
+    context.fillRect(x, y, cellWidth, LABEL_HEIGHT);
+    context.fillStyle = "#ffffff";
+    context.fillText(page.label, x + PAGE_PADDING, y + LABEL_HEIGHT / 2);
+    context.drawImage(page.canvas, x + PAGE_PADDING, y + LABEL_HEIGHT);
+  });
+
+  const blob = await canvasBlob(contactSheet, quality);
+  return new File([blob], fileName, { type: "image/jpeg" });
+}
+
+export async function buildGroqContactSheets(questionPaper: File, answerSheet: File): Promise<File[] | null> {
   try {
     const [questionPages, answerPages] = await Promise.all([
       rasterize(questionPaper, "QUESTION PAPER"),
       rasterize(answerSheet, "ANSWER SHEET"),
     ]);
-    const pages = [...questionPages, ...answerPages];
-    if (pages.length === 0 || pages.length > MAX_TOTAL_PAGES) return null;
+    if (questionPages.length + answerPages.length > MAX_TOTAL_PAGES) return null;
 
-    const columns = Math.min(4, pages.length);
-    const rows = Math.ceil(pages.length / columns);
-    const cellWidth = PAGE_WIDTH + PAGE_PADDING * 2;
-    const maxPageHeight = Math.max(...pages.map((page) => page.canvas.height));
-    const cellHeight = LABEL_HEIGHT + maxPageHeight + PAGE_PADDING;
-    const contactSheet = document.createElement("canvas");
-    contactSheet.width = columns * cellWidth + (columns + 1) * PAGE_GAP;
-    contactSheet.height = rows * cellHeight + (rows + 1) * PAGE_GAP;
-    const context = contactSheet.getContext("2d");
-    if (!context) return null;
+    const encode = async (quality: number) => Promise.all([
+      encodeContactSheet(questionPages, "assessment-groq-questions.jpg", 3, quality),
+      encodeContactSheet(answerPages, "assessment-groq-answers.jpg", 2, quality),
+    ]);
 
-    context.fillStyle = "#d9d6d2";
-    context.fillRect(0, 0, contactSheet.width, contactSheet.height);
-    context.textBaseline = "middle";
-    context.font = "700 22px Arial, sans-serif";
-
-    pages.forEach((page, index) => {
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      const x = PAGE_GAP + column * (cellWidth + PAGE_GAP);
-      const y = PAGE_GAP + row * (cellHeight + PAGE_GAP);
-      context.fillStyle = "#ffffff";
-      context.fillRect(x, y, cellWidth, cellHeight);
-      context.fillStyle = page.label.startsWith("QUESTION") ? "#ff5623" : "#228b22";
-      context.fillRect(x, y, cellWidth, LABEL_HEIGHT);
-      context.fillStyle = "#ffffff";
-      context.fillText(page.label, x + PAGE_PADDING, y + LABEL_HEIGHT / 2);
-      context.drawImage(page.canvas, x + PAGE_PADDING, y + LABEL_HEIGHT);
-    });
-
-    let blob = await canvasBlob(contactSheet, 0.84);
-    if (blob.size > MAX_CONTACT_SHEET_BYTES) blob = await canvasBlob(contactSheet, 0.68);
-    if (blob.size > MAX_CONTACT_SHEET_BYTES) return null;
-    return new File([blob], "assessment-groq-contact-sheet.jpg", { type: "image/jpeg" });
+    let files = (await encode(0.84)).filter((file): file is File => Boolean(file));
+    if (files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
+      files = (await encode(0.68)).filter((file): file is File => Boolean(file));
+    }
+    if (files.length !== 2 || files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
+      return null;
+    }
+    return files;
   } catch {
     return null;
   }

@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { ProcessingView } from "@/components/ProcessingView";
 import { ResultsView } from "@/components/ResultsView";
 import { UploadView } from "@/components/UploadView";
-import { buildGroqContactSheet } from "@/lib/groqFallback";
+import { buildGroqContactSheets } from "@/lib/groqFallback";
 import type { AnalysisResult, UploadedFiles } from "@/lib/types";
 
 type ViewState = "upload" | "processing" | "results";
@@ -80,11 +80,11 @@ export default function HomePage() {
       const canRasterizeForGroq = isPdf(files.questionPaper) || isPdf(files.answerSheet);
       if (response.status === 503 && canRasterizeForGroq) {
         setProgress(84);
-        const contactSheet = await buildGroqContactSheet(files.questionPaper, files.answerSheet);
-        if (contactSheet) {
+        const contactSheets = await buildGroqContactSheets(files.questionPaper, files.answerSheet);
+        if (contactSheets) {
           const fallbackData = new FormData();
           fallbackData.append("preferGroq", "true");
-          fallbackData.append("groqContactSheet", contactSheet);
+          contactSheets.forEach((contactSheet) => fallbackData.append("groqContactSheet", contactSheet));
           ({ response, payload } = await postAnalysis(fallbackData));
         }
       }

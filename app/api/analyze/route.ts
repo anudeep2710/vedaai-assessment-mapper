@@ -49,8 +49,8 @@ const CONTACT_SHEET_PROMPT = `The supplied JPEG is a contact sheet containing bo
 
 const GROQ_OUTPUT_RULES = `For this fallback response:
 - Return one complete JSON object and no Markdown or commentary.
-- Preserve each printed question, but keep question text to at most 45 words.
-- Keep answerText to at most 30 words and feedback to at most 20 words per question.
+- Preserve each printed question, but keep question text to at most 35 words.
+- Keep answerText to at most 12 words and feedback to at most 10 words per question.
 - Prefer concise values over truncating the response. Close every JSON array and object.`;
 
 const MAX_CONTACT_SHEET_BYTES = 2_800_000;
@@ -121,19 +121,19 @@ function isImage(file: File | null): file is File {
   return Boolean(file?.type.startsWith("image/"));
 }
 
-async function callGroq(questionPaper: File | null, answerSheet: File | null, contactSheet: File | null) {
+async function callGroq(questionPaper: File | null, answerSheet: File | null, contactSheets: File[]) {
   const key = process.env.GROQ_API_KEY;
   if (!key) return null;
 
   let content: Array<Record<string, unknown>>;
-  if (isImage(contactSheet)) {
-    const contactBuffer = await contactSheet.arrayBuffer();
+  if (contactSheets.length > 0) {
+    const contactBuffers = await Promise.all(contactSheets.map((contactSheet) => contactSheet.arrayBuffer()));
     content = [
       { type: "text", text: `${EXTRACTION_PROMPT}\n${CONTACT_SHEET_PROMPT}\n${GROQ_OUTPUT_RULES}` },
-      {
+      ...contactSheets.map((contactSheet, index) => ({
         type: "image_url",
-        image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffer)}` },
-      },
+        image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffers[index])}` },
+      })),
     ];
   } else if (isImage(questionPaper) && isImage(answerSheet)) {
     const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
@@ -158,7 +158,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
       top_p: 0.8,
       reasoning_effort: "none",
       reasoning_format: "hidden",
-      max_completion_tokens: 5_000,
+      max_completion_tokens: 3_200,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -192,14 +192,19 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const questionEntry = formData.get("questionPaper");
     const answerEntry = formData.get("answerSheet");
-    const contactEntry = formData.get("groqContactSheet");
+    const contactEntries = formData.getAll("groqContactSheet");
     const questionPaper = questionEntry instanceof File ? questionEntry : null;
     const answerSheet = answerEntry instanceof File ? answerEntry : null;
-    const contactSheet = contactEntry instanceof File ? contactEntry : null;
+    const contactSheets = contactEntries.filter((entry): entry is File => entry instanceof File);
     const preferGroq = formData.get("preferGroq") === "true";
-    const validContactSheet = isImage(contactSheet) && contactSheet.size <= MAX_CONTACT_SHEET_BYTES;
+    const contactSheetBytes = contactSheets.reduce((total, file) => total + file.size, 0);
+    const validContactSheets = contactSheets.length > 0
+      && contactSheets.length <= 2
+      && contactSheets.length === contactEntries.length
+      && contactSheets.every((file) => isImage(file))
+      && contactSheetBytes <= MAX_CONTACT_SHEET_BYTES;
 
-    if ((!questionPaper || !answerSheet) && !(preferGroq && validContactSheet)) {
+    if ((!questionPaper || !answerSheet) && !(preferGroq && validContactSheets)) {
       return NextResponse.json({ error: "Upload both a question paper and an answer sheet." }, { status: 400 });
     }
 
@@ -207,14 +212,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Each file must be 15 MB or smaller. Compress the files and retry." }, { status: 413 });
     }
 
-    if (contactSheet && !validContactSheet) {
-      return NextResponse.json({ error: "The Groq fallback image is invalid or too large." }, { status: 413 });
+    if (contactEntries.length > 0 && !validContactSheets) {
+      return NextResponse.json({ error: "The Groq fallback images are invalid or too large." }, { status: 413 });
     }
 
     const geminiConfiguredForFiles = Boolean(process.env.GEMINI_API_KEY && questionPaper && answerSheet);
     const groqConfiguredForFiles = Boolean(
       process.env.GROQ_API_KEY
-      && (validContactSheet || (isImage(questionPaper) && isImage(answerSheet))),
+      && (validContactSheets || (isImage(questionPaper) && isImage(answerSheet))),
     );
 
     if ((!geminiConfiguredForFiles || preferGroq) && !groqConfiguredForFiles) {
@@ -240,7 +245,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const groqResult = await callGroq(questionPaper, answerSheet, validContactSheet ? contactSheet : null);
+      const groqResult = await callGroq(questionPaper, answerSheet, validContactSheets ? contactSheets : []);
       if (groqResult?.questions.length) return NextResponse.json(groqResult);
     } catch (error) {
       console.error("Groq extraction failed", error instanceof Error ? error.message : "Unknown Groq error");
