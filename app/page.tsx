@@ -5,12 +5,39 @@ import { AppShell } from "@/components/AppShell";
 import { ProcessingView } from "@/components/ProcessingView";
 import { ResultsView } from "@/components/ResultsView";
 import { UploadView } from "@/components/UploadView";
+import { buildGroqContactSheet } from "@/lib/groqFallback";
 import type { AnalysisResult, UploadedFiles } from "@/lib/types";
 
 type ViewState = "upload" | "processing" | "results";
 
 function sleep(milliseconds: number) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function isPdf(file: File): boolean {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+type AnalyzeResponse = {
+  response: Response;
+  payload: Partial<AnalysisResult> & { error?: string };
+};
+
+async function postAnalysis(formData: FormData): Promise<AnalyzeResponse> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 110_000);
+
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+    const payload = (await response.json()) as Partial<AnalysisResult> & { error?: string };
+    return { response, payload };
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export default function HomePage() {
@@ -45,13 +72,23 @@ export default function HomePage() {
     const formData = new FormData();
     formData.append("questionPaper", files.questionPaper);
     formData.append("answerSheet", files.answerSheet);
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 110_000);
     const startedAt = Date.now();
 
     try {
-      const response = await fetch("/api/analyze", { method: "POST", body: formData, signal: controller.signal });
-      const payload = (await response.json()) as Partial<AnalysisResult> & { error?: string };
+      let { response, payload } = await postAnalysis(formData);
+
+      const canRasterizeForGroq = isPdf(files.questionPaper) || isPdf(files.answerSheet);
+      if (response.status === 503 && canRasterizeForGroq) {
+        setProgress(84);
+        const contactSheet = await buildGroqContactSheet(files.questionPaper, files.answerSheet);
+        if (contactSheet) {
+          const fallbackData = new FormData();
+          fallbackData.append("preferGroq", "true");
+          fallbackData.append("groqContactSheet", contactSheet);
+          ({ response, payload } = await postAnalysis(fallbackData));
+        }
+      }
+
       if (!response.ok || !Array.isArray(payload.questions)) throw new Error(payload.error || "Analysis failed.");
       setProgress(92);
       await sleep(Math.max(0, 1_800 - (Date.now() - startedAt)));
@@ -65,8 +102,6 @@ export default function HomePage() {
           : "The files could not be analyzed. Check the file type and retry.";
       setErrorMessage(message);
       setView("upload");
-    } finally {
-      window.clearTimeout(timeout);
     }
   };
 

@@ -40,6 +40,15 @@ Rules:
 - If a mark value cannot be inferred, use the printed maximum and a conservative score.
 `;
 
+const CONTACT_SHEET_PROMPT = `The supplied JPEG is a contact sheet containing both documents.
+- Tiles with orange headers are QUESTION PAPER pages. Tiles with green headers are ANSWER SHEET pages.
+- Read every tile independently and use the page number printed in each tile header.
+- For regions[].page and unmatchedAnswers[].page, return the ANSWER SHEET page number from the green header.
+- Calculate every bbox relative to the individual white answer-page image inside its tile, excluding the green header and the grey contact-sheet background. Do not calculate bboxes relative to the full contact sheet.
+- Never return a region from an orange QUESTION PAPER tile.`;
+
+const MAX_CONTACT_SHEET_BYTES = 2_800_000;
+
 function asBase64(buffer: ArrayBuffer): string {
   return Buffer.from(buffer).toString("base64");
 }
@@ -102,12 +111,37 @@ async function callGemini(questionPaper: File, answerSheet: File) {
   throw new Error("Gemini extraction failed after retrying.");
 }
 
-async function callGroq(questionPaper: File, answerSheet: File) {
-  const key = process.env.GROQ_API_KEY;
-  const isImageInput = questionPaper.type.startsWith("image/") && answerSheet.type.startsWith("image/");
-  if (!key || !isImageInput) return null;
+function isImage(file: File | null): file is File {
+  return Boolean(file?.type.startsWith("image/"));
+}
 
-  const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
+async function callGroq(questionPaper: File | null, answerSheet: File | null, contactSheet: File | null) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return null;
+
+  let content: Array<Record<string, unknown>>;
+  if (isImage(contactSheet)) {
+    const contactBuffer = await contactSheet.arrayBuffer();
+    content = [
+      { type: "text", text: `${EXTRACTION_PROMPT}\n${CONTACT_SHEET_PROMPT}` },
+      {
+        type: "image_url",
+        image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffer)}` },
+      },
+    ];
+  } else if (isImage(questionPaper) && isImage(answerSheet)) {
+    const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
+    content = [
+      { type: "text", text: EXTRACTION_PROMPT },
+      { type: "text", text: "QUESTION PAPER IMAGE:" },
+      { type: "image_url", image_url: { url: `data:${questionPaper.type};base64,${asBase64(questionBuffer)}` } },
+      { type: "text", text: "STUDENT ANSWER SHEET IMAGE:" },
+      { type: "image_url", image_url: { url: `data:${answerSheet.type};base64,${asBase64(answerBuffer)}` } },
+    ];
+  } else {
+    return null;
+  }
+
   const model = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -115,17 +149,12 @@ async function callGroq(questionPaper: File, answerSheet: File) {
     body: JSON.stringify({
       model,
       temperature: 0.1,
+      max_completion_tokens: 5_000,
       response_format: { type: "json_object" },
       messages: [
         {
           role: "user",
-          content: [
-            { type: "text", text: EXTRACTION_PROMPT },
-            { type: "text", text: "QUESTION PAPER IMAGE:" },
-            { type: "image_url", image_url: { url: `data:${questionPaper.type};base64,${asBase64(questionBuffer)}` } },
-            { type: "text", text: "STUDENT ANSWER SHEET IMAGE:" },
-            { type: "image_url", image_url: { url: `data:${answerSheet.type};base64,${asBase64(answerBuffer)}` } },
-          ],
+          content,
         },
       ],
     }),
@@ -141,26 +170,35 @@ async function callGroq(questionPaper: File, answerSheet: File) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const questionPaper = formData.get("questionPaper");
-    const answerSheet = formData.get("answerSheet");
+    const questionEntry = formData.get("questionPaper");
+    const answerEntry = formData.get("answerSheet");
+    const contactEntry = formData.get("groqContactSheet");
+    const questionPaper = questionEntry instanceof File ? questionEntry : null;
+    const answerSheet = answerEntry instanceof File ? answerEntry : null;
+    const contactSheet = contactEntry instanceof File ? contactEntry : null;
+    const preferGroq = formData.get("preferGroq") === "true";
+    const validContactSheet = isImage(contactSheet) && contactSheet.size <= MAX_CONTACT_SHEET_BYTES;
 
-    if (!(questionPaper instanceof File) || !(answerSheet instanceof File)) {
+    if ((!questionPaper || !answerSheet) && !(preferGroq && validContactSheet)) {
       return NextResponse.json({ error: "Upload both a question paper and an answer sheet." }, { status: 400 });
     }
 
-    if (questionPaper.size > 15_000_000 || answerSheet.size > 15_000_000) {
+    if ((questionPaper && questionPaper.size > 15_000_000) || (answerSheet && answerSheet.size > 15_000_000)) {
       return NextResponse.json({ error: "Each file must be 15 MB or smaller. Compress the files and retry." }, { status: 413 });
     }
 
-    const geminiConfigured = Boolean(process.env.GEMINI_API_KEY);
+    if (contactSheet && !validContactSheet) {
+      return NextResponse.json({ error: "The Groq fallback image is invalid or too large." }, { status: 413 });
+    }
+
+    const geminiConfiguredForFiles = Boolean(process.env.GEMINI_API_KEY && questionPaper && answerSheet);
     const groqConfiguredForFiles = Boolean(
       process.env.GROQ_API_KEY
-      && questionPaper.type.startsWith("image/")
-      && answerSheet.type.startsWith("image/"),
+      && (validContactSheet || (isImage(questionPaper) && isImage(answerSheet))),
     );
 
-    if (!geminiConfigured && !groqConfiguredForFiles) {
-      const usesPdf = questionPaper.type === "application/pdf" || answerSheet.type === "application/pdf";
+    if ((!geminiConfiguredForFiles || preferGroq) && !groqConfiguredForFiles) {
+      const usesPdf = questionPaper?.type === "application/pdf" || answerSheet?.type === "application/pdf";
       return NextResponse.json(
         {
           error: usesPdf
@@ -171,16 +209,18 @@ export async function POST(request: Request) {
       );
     }
 
-    try {
-      const geminiResult = await callGemini(questionPaper, answerSheet);
-      if (geminiResult?.questions.length) return NextResponse.json(geminiResult);
-    } catch (error) {
-      console.error("Gemini extraction failed", error instanceof Error ? error.message : "Unknown Gemini error");
-      // The Groq branch below is intentionally a fallback; the UI still remains usable if both providers fail.
+    if (!preferGroq && questionPaper && answerSheet) {
+      try {
+        const geminiResult = await callGemini(questionPaper, answerSheet);
+        if (geminiResult?.questions.length) return NextResponse.json(geminiResult);
+      } catch (error) {
+        console.error("Gemini extraction failed", error instanceof Error ? error.message : "Unknown Gemini error");
+        // The Groq branch below is intentionally a fallback; the UI still remains usable if both providers fail.
+      }
     }
 
     try {
-      const groqResult = await callGroq(questionPaper, answerSheet);
+      const groqResult = await callGroq(questionPaper, answerSheet, validContactSheet ? contactSheet : null);
       if (groqResult?.questions.length) return NextResponse.json(groqResult);
     } catch (error) {
       console.error("Groq extraction failed", error instanceof Error ? error.message : "Unknown Groq error");
