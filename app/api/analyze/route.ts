@@ -43,6 +43,7 @@ Rules:
 const CONTACT_SHEET_PROMPT = `The supplied JPEG is a contact sheet containing both documents.
 - Tiles with orange headers are QUESTION PAPER pages. Tiles with green headers are ANSWER SHEET pages.
 - Read every tile independently and use the page number printed in each tile header.
+- The green answer pages are deliberately out of order. Handwritten labels are matching hints only and must never determine output numbering or order.
 - For regions[].page and unmatchedAnswers[].page, return the ANSWER SHEET page number from the green header.
 - Calculate every bbox relative to the individual white answer-page image inside its tile, excluding the green header and the grey contact-sheet background. Do not calculate bboxes relative to the full contact sheet.
 - Never return a region from an orange QUESTION PAPER tile.`;
@@ -133,10 +134,18 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
     const contactBuffers = await Promise.all(contactSheets.map((contactSheet) => contactSheet.arrayBuffer()));
     content = [
       { type: "text", text: `${EXTRACTION_PROMPT}\n${CONTACT_SHEET_PROMPT}\n${GROQ_OUTPUT_RULES}` },
-      ...contactSheets.map((contactSheet, index) => ({
-        type: "image_url",
-        image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffers[index])}` },
-      })),
+      ...contactSheets.flatMap((contactSheet, index) => [
+        {
+          type: "text",
+          text: index === 0
+            ? "IMAGE 1 — PRINTED QUESTION PAPER. This image alone determines the questions, exact labels, marks and output order."
+            : "IMAGE 2 — HANDWRITTEN ANSWER SHEET. Use this image only to match answers and regions to the printed list from IMAGE 1.",
+        },
+        {
+          type: "image_url",
+          image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffers[index])}` },
+        },
+      ]),
     ];
   } else if (isImage(questionPaper) && isImage(answerSheet)) {
     const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
@@ -161,7 +170,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
       top_p: 0.8,
       reasoning_effort: "none",
       reasoning_format: "hidden",
-      max_completion_tokens: 3_100,
+      max_completion_tokens: 3_000,
       response_format: { type: "json_object" },
       messages: [
         {
