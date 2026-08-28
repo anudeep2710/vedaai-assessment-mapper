@@ -47,6 +47,12 @@ const CONTACT_SHEET_PROMPT = `The supplied JPEG is a contact sheet containing bo
 - Calculate every bbox relative to the individual white answer-page image inside its tile, excluding the green header and the grey contact-sheet background. Do not calculate bboxes relative to the full contact sheet.
 - Never return a region from an orange QUESTION PAPER tile.`;
 
+const GROQ_OUTPUT_RULES = `For this fallback response:
+- Return one complete JSON object and no Markdown or commentary.
+- Preserve each printed question, but keep question text to at most 45 words.
+- Keep answerText to at most 30 words and feedback to at most 20 words per question.
+- Prefer concise values over truncating the response. Close every JSON array and object.`;
+
 const MAX_CONTACT_SHEET_BYTES = 2_800_000;
 
 function asBase64(buffer: ArrayBuffer): string {
@@ -123,7 +129,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
   if (isImage(contactSheet)) {
     const contactBuffer = await contactSheet.arrayBuffer();
     content = [
-      { type: "text", text: `${EXTRACTION_PROMPT}\n${CONTACT_SHEET_PROMPT}` },
+      { type: "text", text: `${EXTRACTION_PROMPT}\n${CONTACT_SHEET_PROMPT}\n${GROQ_OUTPUT_RULES}` },
       {
         type: "image_url",
         image_url: { url: `data:${contactSheet.type};base64,${asBase64(contactBuffer)}` },
@@ -132,7 +138,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
   } else if (isImage(questionPaper) && isImage(answerSheet)) {
     const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
     content = [
-      { type: "text", text: EXTRACTION_PROMPT },
+      { type: "text", text: `${EXTRACTION_PROMPT}\n${GROQ_OUTPUT_RULES}` },
       { type: "text", text: "QUESTION PAPER IMAGE:" },
       { type: "image_url", image_url: { url: `data:${questionPaper.type};base64,${asBase64(questionBuffer)}` } },
       { type: "text", text: "STUDENT ANSWER SHEET IMAGE:" },
@@ -148,7 +154,10 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model,
-      temperature: 0.1,
+      temperature: 0.5,
+      top_p: 0.8,
+      reasoning_effort: "none",
+      reasoning_format: "hidden",
       max_completion_tokens: 5_000,
       response_format: { type: "json_object" },
       messages: [
