@@ -49,8 +49,11 @@ const CONTACT_SHEET_PROMPT = `The supplied JPEG is a contact sheet containing bo
 
 const GROQ_OUTPUT_RULES = `For this fallback response:
 - Return one complete JSON object and no Markdown or commentary.
-- Preserve each printed question, but keep question text to at most 35 words.
-- Keep answerText to at most 12 words and feedback to at most 10 words per question.
+- First enumerate every printed label from the orange question pages in order, including nested parts such as 6 (b) (i). Include each exactly once before mapping any answers.
+- Never shift a question's text onto the previous label when an answer is missing.
+- Read maxMarks from the red [n] printed beside that exact question; never use one default mark value for all questions.
+- Preserve each printed question, but keep question text to at most 30 words.
+- Keep answerText to at most 8 words and feedback to at most 8 words per question.
 - Prefer concise values over truncating the response. Close every JSON array and object.`;
 
 const MAX_CONTACT_SHEET_BYTES = 2_800_000;

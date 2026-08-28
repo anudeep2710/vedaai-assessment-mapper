@@ -16,6 +16,50 @@ function isPdf(file: File): boolean {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
+function cropQuestionFooter(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return canvas;
+
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const inkRows: number[] = [];
+  for (let y = 0; y < canvas.height; y += 2) {
+    let inkSamples = 0;
+    for (let x = 0; x < canvas.width; x += 4) {
+      const offset = (y * canvas.width + x) * 4;
+      if (pixels[offset] < 225 || pixels[offset + 1] < 225 || pixels[offset + 2] < 225) {
+        inkSamples += 1;
+        if (inkSamples >= 3) break;
+      }
+    }
+    if (inkSamples >= 3) inkRows.push(y);
+  }
+
+  if (inkRows.length < 2) return canvas;
+  let footerStartIndex = inkRows.length - 1;
+  while (
+    footerStartIndex > 0
+    && inkRows[footerStartIndex] - inkRows[footerStartIndex - 1] <= 18
+  ) {
+    footerStartIndex -= 1;
+  }
+
+  const footerStart = inkRows[footerStartIndex];
+  const previousInk = inkRows[footerStartIndex - 1];
+  const isolatedFooter = footerStart > canvas.height * 0.85 && footerStart - previousInk > 80;
+  if (!isolatedFooter) return canvas;
+
+  const cropHeight = Math.min(canvas.height, Math.max(canvas.height * 0.45, previousInk + 40));
+  const cropped = document.createElement("canvas");
+  cropped.width = canvas.width;
+  cropped.height = Math.round(cropHeight);
+  const croppedContext = cropped.getContext("2d");
+  if (!croppedContext) return canvas;
+  croppedContext.fillStyle = "#ffffff";
+  croppedContext.fillRect(0, 0, cropped.width, cropped.height);
+  croppedContext.drawImage(canvas, 0, 0, canvas.width, cropped.height, 0, 0, cropped.width, cropped.height);
+  return cropped;
+}
+
 async function renderPdfPages(file: File, labelPrefix: string): Promise<RasterPage[]> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -37,7 +81,8 @@ async function renderPdfPages(file: File, labelPrefix: string): Promise<RasterPa
       canvas.width = Math.round(viewport.width);
       canvas.height = Math.round(viewport.height);
       await pdfPage.render({ canvas, viewport, background: "#ffffff" }).promise;
-      pages.push({ canvas, label: `${labelPrefix} · PAGE ${pageNumber}` });
+      const renderedCanvas = labelPrefix === "QUESTION PAPER" ? cropQuestionFooter(canvas) : canvas;
+      pages.push({ canvas: renderedCanvas, label: `${labelPrefix} · PAGE ${pageNumber}` });
     }
     return pages;
   } finally {
