@@ -174,16 +174,21 @@ export async function buildGroqContactSheets(questionPaper: File, answerSheet: F
     ]);
     if (questionPages.length + answerPages.length > MAX_TOTAL_PAGES) return null;
 
+    const answerSplit = Math.ceil(answerPages.length / 2);
+    const firstAnswerPages = answerPages.slice(0, answerSplit);
+    const secondAnswerPages = answerPages.slice(answerSplit);
     const encode = async (quality: number) => Promise.all([
       encodeContactSheet(questionPages, "assessment-groq-questions.jpg", 3, quality),
-      encodeContactSheet(answerPages, "assessment-groq-answers.jpg", 2, quality),
+      encodeContactSheet(firstAnswerPages, "assessment-groq-answers-1.jpg", 2, quality),
+      encodeContactSheet(secondAnswerPages, "assessment-groq-answers-2.jpg", 2, quality),
     ]);
 
     let files = (await encode(0.84)).filter((file): file is File => Boolean(file));
     if (files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
       files = (await encode(0.68)).filter((file): file is File => Boolean(file));
     }
-    if (files.length !== 2 || files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
+    const expectedFileCount = secondAnswerPages.length > 0 ? 3 : 2;
+    if (files.length !== expectedFileCount || files.reduce((total, file) => total + file.size, 0) > MAX_CONTACT_SHEET_BYTES) {
       return null;
     }
     return files;

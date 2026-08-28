@@ -178,7 +178,7 @@ async function callGroqJson(
           : Number.isFinite(messageSeconds) && messageSeconds > 0
             ? messageSeconds
             : 2;
-        await new Promise((resolve) => setTimeout(resolve, Math.min(15_000, Math.ceil(retrySeconds * 1_000) + 250)));
+        await new Promise((resolve) => setTimeout(resolve, Math.min(35_000, Math.ceil(retrySeconds * 1_000) + 250)));
         continue;
       }
       const safeMessage = providerMessage.replace(/[\r\n]+/g, " ").slice(0, 500);
@@ -219,12 +219,18 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
   if (!key) return null;
 
   const questionSource = contactSheets[0] || (isImage(questionPaper) ? questionPaper : null);
-  const answerSource = contactSheets[1] || (isImage(answerSheet) ? answerSheet : null);
-  if (!isImage(questionSource) || !isImage(answerSource)) return null;
+  const answerSources = contactSheets.length > 0
+    ? contactSheets.slice(1)
+    : isImage(answerSheet)
+      ? [answerSheet]
+      : [];
+  if (!isImage(questionSource) || answerSources.length === 0 || !answerSources.every((source) => isImage(source))) {
+    return null;
+  }
 
-  const [questionBuffer, answerBuffer] = await Promise.all([
+  const [questionBuffer, answerBuffers] = await Promise.all([
     questionSource.arrayBuffer(),
-    answerSource.arrayBuffer(),
+    Promise.all(answerSources.map((source) => source.arrayBuffer())),
   ]);
   const questionResult = asRecord(await callGroqJson(
     key,
@@ -257,7 +263,10 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
     key,
     [
       { type: "text", text: `${GROQ_ANSWER_PROMPT}\n${authoritativeList}` },
-      { type: "image_url", image_url: { url: `data:${answerSource.type};base64,${asBase64(answerBuffer)}` } },
+      ...answerSources.map((answerSource, index) => ({
+        type: "image_url",
+        image_url: { url: `data:${answerSource.type};base64,${asBase64(answerBuffers[index])}` },
+      })),
     ],
     1_200,
   ));
@@ -314,7 +323,8 @@ export async function POST(request: Request) {
     const contactSheets = contactEntries.filter((entry): entry is File => entry instanceof File);
     const preferGroq = formData.get("preferGroq") === "true";
     const contactSheetBytes = contactSheets.reduce((total, file) => total + file.size, 0);
-    const validContactSheets = contactSheets.length === 2
+    const validContactSheets = contactSheets.length >= 2
+      && contactSheets.length <= 3
       && contactSheets.length === contactEntries.length
       && contactSheets.every((file) => isImage(file))
       && contactSheetBytes <= MAX_CONTACT_SHEET_BYTES;
