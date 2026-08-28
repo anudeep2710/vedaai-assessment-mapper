@@ -51,31 +51,55 @@ async function callGemini(questionPaper: File, answerSheet: File) {
   const [questionBuffer, answerBuffer] = await Promise.all([questionPaper.arrayBuffer(), answerSheet.arrayBuffer()]);
   const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: EXTRACTION_PROMPT },
-            { text: "QUESTION PAPER FILE:" },
-            { inlineData: { mimeType: questionPaper.type || "application/pdf", data: asBase64(questionBuffer) } },
-            { text: "STUDENT ANSWER SHEET FILE:" },
-            { inlineData: { mimeType: answerSheet.type || "application/pdf", data: asBase64(answerBuffer) } },
-          ],
-        },
-      ],
-      generationConfig: { responseMimeType: "application/json" },
-    }),
+  const requestBody = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: EXTRACTION_PROMPT },
+          { text: "QUESTION PAPER FILE:" },
+          { inlineData: { mimeType: questionPaper.type || "application/pdf", data: asBase64(questionBuffer) } },
+          { text: "STUDENT ANSWER SHEET FILE:" },
+          { inlineData: { mimeType: answerSheet.type || "application/pdf", data: asBase64(answerBuffer) } },
+        ],
+      },
+    ],
+    generationConfig: { responseMimeType: "application/json" },
   });
 
-  if (!response.ok) throw new Error(`Gemini request failed with status ${response.status}.`);
-  const data = (await response.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  const rawText = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
-  if (!rawText) throw new Error("Gemini returned an empty response.");
-  return normalizeAnalysis(extractJsonObject(rawText), "gemini", "Gemini extraction");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      });
+    } catch (error) {
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        continue;
+      }
+      throw error;
+    }
+
+    if (!response.ok) {
+      const retryable = [408, 429, 500, 502, 503, 504].includes(response.status);
+      if (attempt === 0 && retryable) {
+        await response.text();
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        continue;
+      }
+      throw new Error(`Gemini request failed with status ${response.status}.`);
+    }
+
+    const data = (await response.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    const rawText = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+    if (!rawText) throw new Error("Gemini returned an empty response.");
+    return normalizeAnalysis(extractJsonObject(rawText), "gemini", "Gemini extraction");
+  }
+
+  throw new Error("Gemini extraction failed after retrying.");
 }
 
 async function callGroq(questionPaper: File, answerSheet: File) {
@@ -150,14 +174,16 @@ export async function POST(request: Request) {
     try {
       const geminiResult = await callGemini(questionPaper, answerSheet);
       if (geminiResult?.questions.length) return NextResponse.json(geminiResult);
-    } catch {
+    } catch (error) {
+      console.error("Gemini extraction failed", error instanceof Error ? error.message : "Unknown Gemini error");
       // The Groq branch below is intentionally a fallback; the UI still remains usable if both providers fail.
     }
 
     try {
       const groqResult = await callGroq(questionPaper, answerSheet);
       if (groqResult?.questions.length) return NextResponse.json(groqResult);
-    } catch {
+    } catch (error) {
+      console.error("Groq extraction failed", error instanceof Error ? error.message : "Unknown Groq error");
       // Keep the error response honest when both providers fail; never fabricate a review.
     }
 
