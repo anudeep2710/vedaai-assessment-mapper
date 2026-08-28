@@ -66,7 +66,7 @@ function normalizeQuestion(value: unknown, index: number): AssessmentQuestion {
       : detectedRegions.length > 0 && !explicitlyUnanswered
         ? "incorrect"
         : "unanswered";
-  const status = suppliedStatus || inferredStatus;
+  const status = marks === 0 && explicitlyUnanswered ? "unanswered" : suppliedStatus || inferredStatus;
   const regions = status === "unanswered" ? [] : detectedRegions;
   const answerText = rawAnswerText || (status === "unanswered" ? "No answer detected." : "Answer detected.");
 
