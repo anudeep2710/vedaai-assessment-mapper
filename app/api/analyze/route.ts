@@ -161,7 +161,7 @@ async function callGroq(questionPaper: File | null, answerSheet: File | null, co
       top_p: 0.8,
       reasoning_effort: "none",
       reasoning_format: "hidden",
-      max_completion_tokens: 3_200,
+      max_completion_tokens: 3_100,
       response_format: { type: "json_object" },
       messages: [
         {
